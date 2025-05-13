@@ -1,0 +1,248 @@
+
+"use client";
+import type { ColumnData, ColumnId } from '@/types/kanban';
+import NoteCard from './NoteCard';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import type { DragEvent } from 'react';
+import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Trash2 } from 'lucide-react'; 
+
+interface KanbanColumnProps {
+  column: ColumnData;
+  handleDragStart: (e: DragEvent<HTMLDivElement>, noteId: string, sourceColumnId: string) => void;
+  handleDrop: (e: DragEvent<HTMLDivElement>, targetColumnId: ColumnId) => void;
+  onDeleteNote: (noteId: string, columnId: ColumnId) => void;
+  onRestoreNote: (noteId: string) => void;
+  onClearTrash: () => void; 
+  onAddOrUpdateAttachment: (noteId: string, columnId: ColumnId, attachmentContent: string) => void;
+}
+
+// Helper function to get a contrasting text color (black or white)
+function getContrastColor(hexcolor: string): string {
+  if (!hexcolor || hexcolor.length < 7) return '#FFFFFF'; // Default to white for invalid/short hex
+  try {
+    const r = parseInt(hexcolor.slice(1, 3), 16);
+    const g = parseInt(hexcolor.slice(3, 5), 16);
+    const b = parseInt(hexcolor.slice(5, 7), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? '#000000' : '#FFFFFF';
+  } catch (e) {
+    return '#FFFFFF'; // Default to white on error
+  }
+}
+
+
+export default function KanbanColumn({ 
+  column, 
+  handleDragStart, 
+  handleDrop, 
+  onDeleteNote, 
+  onRestoreNote, 
+  onClearTrash,
+  onAddOrUpdateAttachment
+}: KanbanColumnProps) {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isTrashOpen, setIsTrashOpen] = useState(column.id === 'lixeira' ? false : true); 
+
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (column.id === 'lixeira') {
+      e.preventDefault(); 
+      return; 
+    }
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    setIsDragOver(false);
+  };
+
+  const onDropInternal = (e: DragEvent<HTMLDivElement>) => {
+    if (column.id === 'lixeira') { 
+        e.preventDefault();
+        return;
+    }
+    handleDrop(e, column.id);
+    setIsDragOver(false);
+  };
+
+  const getColumnStyles = (col: ColumnData) => {
+    if (col.color && col.id !== 'lixeira') {
+      const tagTextColor = getContrastColor(col.color);
+      return {
+        bgStyle: { backgroundColor: `${col.color}33` }, // '33' is hex for 20% opacity
+        tagStyle: { backgroundColor: col.color, color: tagTextColor },
+        isCustomStyled: true, 
+      };
+    }
+    switch (col.id) {
+      case 'importante':
+        return {
+          bgClass: 'bg-[hsl(var(--column-importante-bg))]', 
+          tagBgClass: 'bg-[hsl(var(--column-importante-tag-bg))]',
+          tagTextClass: 'text-[hsl(var(--column-importante-tag-text))]',
+        };
+      case 'em-processo':
+        return {
+          bgClass: 'bg-[hsl(var(--column-em-processo-bg))]', 
+          tagBgClass: 'bg-[hsl(var(--column-em-processo-tag-bg))]',
+          tagTextClass: 'text-[hsl(var(--column-em-processo-tag-text))]',
+        };
+      case 'feito':
+        return {
+          bgClass: 'bg-[hsl(var(--column-feito-bg))]', 
+          tagBgClass: 'bg-[hsl(var(--column-feito-tag-bg))]',
+          tagTextClass: 'text-[hsl(var(--column-feito-tag-text))]',
+        };
+      case 'lixeira':
+        return {
+          bgClass: 'bg-muted/20 border border-dashed border-muted-foreground/30', 
+          tagBgClass: 'bg-muted hover:bg-muted/80', 
+          tagTextClass: 'text-muted-foreground', 
+        };
+      default: 
+        return { bgClass: 'bg-card/20', tagBgClass: 'bg-primary', tagTextClass: 'text-primary-foreground' };
+    }
+  };
+
+  const styles = getColumnStyles(column);
+
+  if (column.id === 'lixeira') {
+    return (
+      <Accordion type="single" collapsible value={isTrashOpen ? "trash-item" : ""} onValueChange={(value) => setIsTrashOpen(!!value)}>
+        <AccordionItem value="trash-item" className={cn("border-none rounded-lg overflow-hidden shadow-sm mb-4", styles.bgClass)} style={styles.bgStyle}>
+          <div 
+            className={cn(
+              "flex justify-between items-center w-full",
+              styles.tagBgClass, 
+              "p-3 md:p-4"      
+            )}
+            style={styles.tagStyle} 
+          >
+            <AccordionTrigger
+              className={cn(
+                "flex items-center gap-2 p-0 font-medium hover:no-underline focus:outline-none",
+                styles.tagTextClass,
+                "flex-grow justify-start" 
+              )}
+              aria-label={isTrashOpen ? "Ocultar Lixeira" : "Mostrar Lixeira"}
+            >
+              <Trash2 className={cn("h-5 w-5")} />
+              <span id={`column-title-${column.id}`} className={cn("text-base font-semibold")}>
+                {column.title}
+              </span>
+            </AccordionTrigger>
+
+            <div className="flex items-center shrink-0 ml-auto"> 
+              {isTrashOpen && column.notes.length > 0 && (
+                  <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); onClearTrash(); }}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive px-2 py-1 h-auto"
+                      aria-label="Limpar Lixeira"
+                  >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      <span className="hidden sm:inline">Limpar Lixeira</span>
+                  </Button>
+              )}
+              <Badge
+                variant="secondary"
+                className="text-sm font-medium text-[hsl(var(--column-count-text))] bg-transparent px-2 py-0.5 ml-2"
+              >
+                {column.notes.length}
+              </Badge>
+            </div>
+          </div>
+          
+          <AccordionContent 
+             onDragOver={(e) => e.preventDefault()} 
+             onDrop={(e) => e.preventDefault()} 
+             className="max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-300px)]" 
+          >
+            <ScrollArea className="h-full"> 
+              <div className="p-3 md:p-4 space-y-3 min-h-[50px]">
+                {column.notes.length === 0 && (
+                  <p className="text-sm text-muted-foreground italic text-center py-4">A lixeira está vazia.</p>
+                )}
+                {column.notes.map((note) => (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    columnId={column.id}
+                    columnColor={column.color} 
+                    isCustomColumn={column.isCustom} 
+                    onDragStart={handleDragStart}
+                    onDelete={onDeleteNote}
+                    onRestore={onRestoreNote}
+                    onAddOrUpdateAttachment={onAddOrUpdateAttachment}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col w-full rounded-lg shadow-lg overflow-hidden",
+        styles.bgClass, 
+        isDragOver ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+      )}
+      style={styles.bgStyle} 
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDropInternal}
+      aria-labelledby={`column-title-${column.id}`}
+    >
+      <div className="p-3 md:p-4">
+        <div className="flex justify-between items-center gap-2">
+          <Badge
+             id={`column-title-${column.id}`}
+             variant="secondary" 
+             className={cn(
+               "text-base font-semibold px-3 py-1 border-transparent",
+               styles.tagBgClass, 
+               styles.tagTextClass 
+             )}
+             style={styles.tagStyle} 
+           >
+            {column.title}
+          </Badge>
+          <span className="text-sm font-medium text-[hsl(var(--column-count-text))] px-1">
+            {column.notes.length}
+          </span>
+        </div>
+      </div>
+
+      <ScrollArea className="flex-grow">
+         <div className="p-3 md:p-4 space-y-3 min-h-[100px]">
+          {column.notes.length === 0 && (
+            <p className="text-sm text-muted-foreground italic text-center py-4">Nenhuma nota nesta coluna.</p>
+          )}
+          {column.notes.map((note) => (
+            <NoteCard
+              key={note.id}
+              note={note}
+              columnId={column.id}
+              columnColor={column.color} 
+              isCustomColumn={column.isCustom} 
+              onDragStart={handleDragStart}
+              onDelete={onDeleteNote}
+              onRestore={onRestoreNote}
+              onAddOrUpdateAttachment={onAddOrUpdateAttachment}
+            />
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
