@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth } from 'firebase/auth'; // Removido GoogleAuthProvider
 import { getFirestore } from 'firebase/firestore';
 
 const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -65,7 +65,7 @@ if (!missingKeys && !getApps().length) {
 const auth = app ? getAuth(app) : null;
 // @ts-ignore
 const db = app ? getFirestore(app) : null;
-const googleProvider = new GoogleAuthProvider(); // This can be initialized regardless
+// googleProvider removido
 
 // @ts-ignore
-export { app, auth, db, googleProvider };
+export { app, auth, db }; // googleProvider removido da exportação

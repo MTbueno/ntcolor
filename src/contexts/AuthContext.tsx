@@ -1,15 +1,25 @@
 
 "use client";
 import type { User } from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase';
-import { signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut as firebaseSignOut, 
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  type AuthError
+} from 'firebase/auth';
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 interface AuthContextType {
   currentUser: User | null;
   loadingAuth: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<User | null>;
+  signUp: (email: string, password: string) => Promise<User | null>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  mapAuthCodeToMessage: (authCode: string) => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,29 +28,82 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  const signInWithGoogle = async () => {
+  const mapAuthCodeToMessage = (authCode: string): string => {
+    switch (authCode) {
+      case 'auth/invalid-email':
+        return 'O formato do email fornecido é inválido.';
+      case 'auth/user-disabled':
+        return 'Este usuário foi desabilitado.';
+      case 'auth/user-not-found':
+        return 'Nenhum usuário encontrado com este email.';
+      case 'auth/wrong-password':
+        return 'Senha incorreta. Tente novamente.';
+      case 'auth/email-already-in-use':
+        return 'Este email já está em uso por outra conta.';
+      case 'auth/weak-password':
+        return 'A senha é muito fraca. Use pelo menos 6 caracteres.';
+      case 'auth/operation-not-allowed':
+        return 'Login com email e senha não está habilitado.';
+      case 'auth/missing-password':
+        return 'Por favor, insira sua senha.';
+      default:
+        return 'Ocorreu um erro desconhecido. Tente novamente.';
+    }
+  };
+
+  const signIn = async (email: string, password: string): Promise<User | null> => {
     if (!auth) {
-      console.error("Firebase auth is not initialized. Check Firebase configuration.");
-      return;
+      console.error("Firebase auth não está inicializado.");
+      throw new Error("Serviço de autenticação indisponível.");
     }
     try {
-      await signInWithPopup(auth, googleProvider);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      return userCredential.user;
     } catch (error) {
-      console.error("Error signing in with Google: ", error);
-      // Handle error (e.g., show a notification to the user)
+      const authError = error as AuthError;
+      console.error("Erro ao entrar: ", authError);
+      throw new Error(mapAuthCodeToMessage(authError.code));
+    }
+  };
+
+  const signUp = async (email: string, password: string): Promise<User | null> => {
+    if (!auth) {
+      console.error("Firebase auth não está inicializado.");
+      throw new Error("Serviço de autenticação indisponível.");
+    }
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      return userCredential.user;
+    } catch (error) {
+      const authError = error as AuthError;
+      console.error("Erro ao registrar: ", authError);
+      throw new Error(mapAuthCodeToMessage(authError.code));
     }
   };
 
   const signOut = async () => {
     if (!auth) {
-      console.error("Firebase auth is not initialized. Check Firebase configuration.");
+      console.error("Firebase auth não está inicializado.");
       return;
     }
     try {
       await firebaseSignOut(auth);
     } catch (error) {
-      console.error("Error signing out: ", error);
-      // Handle error
+      console.error("Erro ao sair: ", error);
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    if (!auth) {
+      console.error("Firebase auth não está inicializado.");
+      throw new Error("Serviço de autenticação indisponível.");
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      const authError = error as AuthError;
+      console.error("Erro ao redefinir senha: ", authError);
+      throw new Error(mapAuthCodeToMessage(authError.code));
     }
   };
 
@@ -52,7 +115,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (!auth) {
-      console.error("Firebase auth is not initialized in onAuthStateChanged. Check Firebase config.");
+      console.error("Firebase auth não está inicializado no onAuthStateChanged. Verifique a configuração.");
       setLoadingAuth(false);
       return;
     }
@@ -67,8 +130,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     currentUser,
     loadingAuth,
-    signInWithGoogle,
+    signIn,
+    signUp,
     signOut,
+    resetPassword,
+    mapAuthCodeToMessage,
   };
 
   return <AuthContext.Provider value={value}>{!loadingAuth && children}</AuthContext.Provider>;
@@ -77,8 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
   return context;
 };
-
