@@ -71,11 +71,11 @@ export default function KanbanColumn({
   };
 
   const getColumnStyles = (col: ColumnData) => {
-    const baseOpacity = '33'; // 20% opacity for background
+    const baseOpacity = '33'; // 20% opacity for background -> '33' in hex
     if (col.color && col.id !== 'lixeira') {
       const tagTextColor = getContrastColor(col.color);
       return {
-        bgStyle: { backgroundColor: `${col.color}${baseOpacity}` },
+        bgStyle: { backgroundColor: `${col.color}${baseOpacity}` }, // Uses hex color with appended opacity
         tagStyle: { backgroundColor: col.color, color: tagTextColor },
         isCustomStyled: true, 
       };
@@ -108,7 +108,8 @@ export default function KanbanColumn({
         };
       default: 
         // Fallback for any other (potentially new, non-customized) columns
-        return { bgClass: `bg-card/${baseOpacity.toLowerCase()}`, tagBgClass: 'bg-primary', tagTextClass: 'text-primary-foreground' };
+        // Using card color with 20% opacity (hsla defined or using /<alpha-value> with tailwind JIT)
+        return { bgClass: `bg-card/20`, tagBgClass: 'bg-primary', tagTextClass: 'text-primary-foreground' };
     }
   };
 
@@ -118,7 +119,7 @@ export default function KanbanColumn({
     return (
       <Accordion type="single" collapsible value={isTrashOpen ? "trash-item" : ""} onValueChange={(value) => setIsTrashOpen(!!value)}>
         <AccordionItem value="trash-item" className={cn("border-none rounded-lg overflow-hidden shadow-sm mb-4", styles.bgClass)} style={styles.bgStyle}>
-          <div className="p-0"> {/* Removed padding here to allow AccordionTrigger to span full width if needed */}
+          <div className="p-0"> 
             <AccordionTrigger
               className={cn(
                 "flex items-center justify-between w-full gap-2 p-3 md:p-4 font-medium hover:no-underline focus:outline-none",
@@ -128,24 +129,27 @@ export default function KanbanColumn({
               style={styles.tagStyle} 
               aria-label={isTrashOpen ? "Ocultar Lixeira" : "Mostrar Lixeira"}
             >
-              <div className="flex items-center gap-2 flex-grow"> {/* Wrapper for icon and title */}
+              <div className="flex items-center gap-2 flex-grow"> 
                 <Trash2 className="h-5 w-5" />
                 <span id={`column-title-${column.id}`} className="text-base font-semibold">
                   {column.title}
                 </span>
               </div>
-              {/* Chevron is part of AccordionTrigger, actions and badge are outside the clickable trigger area if part of header */}
               <div className="flex items-center shrink-0"> 
                 {isTrashOpen && column.notes.length > 0 && (
                     <Button
+                        asChild // Add this prop
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => { e.stopPropagation(); onClearTrash(); }} // Stop propagation to prevent accordion toggle
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive px-2 py-1 h-auto mr-2" // Added margin
+                        onClick={(e) => { e.stopPropagation(); onClearTrash(); }}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive px-2 py-1 h-auto mr-2"
                         aria-label="Limpar Lixeira"
                     >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        <span className="hidden sm:inline">Limpar Lixeira</span>
+                        {/* Wrap children in a single element, e.g., a span */}
+                        <span className="inline-flex items-center cursor-pointer">
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            <span className="hidden sm:inline">Limpar Lixeira</span>
+                        </span>
                     </Button>
                 )}
                 <Badge
@@ -161,10 +165,8 @@ export default function KanbanColumn({
           <AccordionContent 
              onDragOver={(e) => e.preventDefault()} 
              onDrop={(e) => e.preventDefault()} 
-             // className prop of AccordionContent applies to an inner div.
-             // We will constrain the ScrollArea inside it.
           >
-            <ScrollArea className="max-h-[60vh]"> {/* Applied max-height here */}
+            <ScrollArea className="max-h-[60vh]">
               <div className="p-3 md:p-4 space-y-3 min-h-[50px]">
                 {column.notes.length === 0 && (
                   <p className="text-sm text-muted-foreground italic text-center py-4">A lixeira está vazia.</p>
@@ -246,4 +248,3 @@ export default function KanbanColumn({
     </div>
   );
 }
-
