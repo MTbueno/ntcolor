@@ -71,20 +71,20 @@ export default function KanbanColumn({
   };
 
   const getColumnStyles = (col: ColumnData) => {
-    const baseOpacity = '33'; // 20% opacity for background -> '33' in hex
+    const baseOpacity = '33'; // 20% opacity
     if (col.color && col.id !== 'lixeira') {
       const tagTextColor = getContrastColor(col.color);
       return {
-        bgStyle: { backgroundColor: `${col.color}${baseOpacity}` }, // Uses hex color with appended opacity
+        bgStyle: { backgroundColor: `${col.color}${baseOpacity}` }, 
         tagStyle: { backgroundColor: col.color, color: tagTextColor },
         isCustomStyled: true, 
       };
     }
-    // Define HSL based styles for default columns ensuring they use the opacity variable
+    // Define HSL based styles for default columns
     switch (col.id) {
       case 'importante':
         return {
-          bgClass: `bg-[hsl(var(--column-importante-bg))]`, // Uses HSL with opacity from globals.css
+          bgClass: `bg-[hsl(var(--column-importante-bg))]`, 
           tagBgClass: 'bg-[hsl(var(--column-importante-tag-bg))]',
           tagTextClass: 'text-[hsl(var(--column-importante-tag-text))]',
         };
@@ -107,8 +107,6 @@ export default function KanbanColumn({
           tagTextClass: 'text-muted-foreground', 
         };
       default: 
-        // Fallback for any other (potentially new, non-customized) columns
-        // Using card color with 20% opacity (hsla defined or using /<alpha-value> with tailwind JIT)
         return { bgClass: `bg-card/20`, tagBgClass: 'bg-primary', tagTextClass: 'text-primary-foreground' };
     }
   };
@@ -124,7 +122,8 @@ export default function KanbanColumn({
               className={cn(
                 "flex items-center justify-between w-full gap-2 p-3 md:p-4 font-medium hover:no-underline focus:outline-none",
                 styles.tagBgClass,
-                styles.tagTextClass
+                styles.tagTextClass,
+                "hover:bg-accent/10" // Adicionado para consistência de hover
               )}
               style={styles.tagStyle} 
               aria-label={isTrashOpen ? "Ocultar Lixeira" : "Mostrar Lixeira"}
@@ -138,14 +137,13 @@ export default function KanbanColumn({
               <div className="flex items-center shrink-0"> 
                 {isTrashOpen && column.notes.length > 0 && (
                     <Button
-                        asChild // Add this prop
+                        asChild 
                         variant="ghost"
                         size="sm"
                         onClick={(e) => { e.stopPropagation(); onClearTrash(); }}
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive px-2 py-1 h-auto mr-2"
                         aria-label="Limpar Lixeira"
                     >
-                        {/* Wrap children in a single element, e.g., a span */}
                         <span className="inline-flex items-center cursor-pointer">
                             <Trash2 className="h-4 w-4 mr-1" />
                             <span className="hidden sm:inline">Limpar Lixeira</span>
@@ -162,12 +160,21 @@ export default function KanbanColumn({
             </AccordionTrigger>
           </div>
           
-          <AccordionContent 
+          <AccordionContent
+             className="flex flex-col" // Torna o container interno do AccordionContent um flex container
              onDragOver={(e) => e.preventDefault()} 
              onDrop={(e) => e.preventDefault()} 
           >
-            <ScrollArea className="max-h-[60vh]">
-              <div className="p-3 md:p-4 space-y-3 min-h-[50px]">
+            {/* 
+              A classe `flex-grow` permite que ScrollArea tente preencher o espaço.
+              `min-h-0` é importante para flex children com max-height para permitir que encolham.
+              `max-h-[calc(60vh-theme(spacing.8))]` (aproximadamente 60vh menos o padding de AccordionContent)
+              ou uma altura mais fixa como `max-h-[300px]` ou `max-h-[400px]` pode ser mais previsível.
+              Testaremos com 60vh, mas se for necessário, subtrair o padding vertical do AccordionContent (pb-4, pt-0) pode ajudar.
+              O padding padrão de AccordionContent é pb-4 (1rem), pt-0.
+            */}
+            <ScrollArea className="flex-grow min-h-0 max-h-[60vh]"> 
+              <div className="p-3 md:p-4 space-y-3"> {/* Padding já estava aqui, mantido. Removido min-h daqui */}
                 {column.notes.length === 0 && (
                   <p className="text-sm text-muted-foreground italic text-center py-4">A lixeira está vazia.</p>
                 )}
@@ -225,7 +232,7 @@ export default function KanbanColumn({
         </div>
       </div>
 
-      <ScrollArea className="flex-grow">
+      <ScrollArea className="flex-grow"> {/* Para colunas normais, flex-grow deve funcionar bem */}
          <div className="p-3 md:p-4 space-y-3 min-h-[100px]">
           {column.notes.length === 0 && (
             <p className="text-sm text-muted-foreground italic text-center py-4">Nenhuma nota nesta coluna.</p>
@@ -248,3 +255,4 @@ export default function KanbanColumn({
     </div>
   );
 }
+
