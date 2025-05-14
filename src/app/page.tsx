@@ -81,6 +81,7 @@ export default function Home() {
     signOut: firebaseSignOut, 
     loadingAuth,
     resetPassword,
+    mapAuthCodeToMessage,
   } = useAuth();
 
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'reset'>('login');
@@ -177,13 +178,16 @@ export default function Home() {
         setAuthMessage("Email de redefinição de senha enviado! Verifique sua caixa de entrada.");
       }
     } catch (error: any) {
+       // The error from useAuth already contains the mapped message
        setAuthError(error.message || "Ocorreu um erro.");
     } finally {
       setIsSubmitting(false);
       if (authMode !== 'reset' || authError) { 
+        // Clear fields on login/signup or if reset had an error
         setEmail('');
         setPassword('');
       } else if (authMode === 'reset' && !authError) {
+        // Only clear email on successful password reset submission
         setEmail('');
       }
     }
@@ -303,14 +307,7 @@ export default function Home() {
       <header className="p-2 md:p-3 shadow-sm sticky top-0 z-20 bg-background/80 backdrop-blur-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div className="w-8 h-8 md:w-10 md:h-10">
-            {currentUser && (
-              <Avatar className="h-8 w-8 md:h-10 md:w-10">
-                <AvatarImage src={currentUser.photoURL || undefined} alt={currentUser.displayName || "User"} />
-                <AvatarFallback>
-                  {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : <UserCircle className="h-5 w-5" />}
-                </AvatarFallback>
-              </Avatar>
-            )}
+            {/* Avatar foi removido conforme solicitado */}
           </div>
           
           <div className="flex flex-col items-center">
