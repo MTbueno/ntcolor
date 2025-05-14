@@ -6,7 +6,7 @@ import GlobalNoteInput from '@/components/GlobalNoteInput';
 import CreateColumnDialog from '@/components/CreateColumnDialog';
 import EditColumnsDialog from '@/components/EditColumnsDialog';
 import ResetConfirmationDialog from '@/components/ResetConfirmationDialog';
-import { useKanbanState } from '@/hooks/useKanbanState';
+import { useKanbanState, type SyncStatus } from '@/hooks/useKanbanState';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,10 +18,54 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, LogOut, UserCircle, Loader2, AlertCircle } from "lucide-react";
+import { MoreVertical, LogOut, UserCircle, Loader2, AlertCircle, Cloud, CloudUpload, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { clearLocalStorage } from '@/lib/kanban-utils';
 import { useAuth } from '@/contexts/AuthContext'; 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+
+interface SyncStatusIndicatorProps {
+  status: SyncStatus;
+}
+
+const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({ status }) => {
+  let icon = <Cloud className="h-5 w-5 text-muted-foreground" />;
+  let tooltipText = "Sincronizado";
+
+  switch (status) {
+    case 'syncing':
+      icon = <Loader2 className="h-5 w-5 animate-spin text-primary" />;
+      tooltipText = "Sincronizando...";
+      break;
+    case 'synced':
+      icon = <CheckCircle2 className="h-5 w-5 text-green-500" />;
+      tooltipText = "Salvo na nuvem!";
+      break;
+    case 'error':
+      icon = <XCircle className="h-5 w-5 text-destructive" />;
+      tooltipText = "Erro ao sincronizar";
+      break;
+    case 'idle':
+    default:
+      icon = <Cloud className="h-5 w-5 text-muted-foreground" />;
+      tooltipText = "Pronto";
+      break;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={100}>
+        <TooltipTrigger asChild>
+          <div className="p-1.5 rounded-full hover:bg-accent">{icon}</div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{tooltipText}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 
 export default function Home() {
@@ -37,7 +81,6 @@ export default function Home() {
     signOut: firebaseSignOut, 
     loadingAuth,
     resetPassword,
-    mapAuthCodeToMessage
   } = useAuth();
 
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'reset'>('login');
@@ -49,7 +92,9 @@ export default function Home() {
 
   const { 
     kanbanState, 
-    isLoaded, 
+    isLoaded,
+    syncStatus,
+    forceSync,
     createColumn, 
     reorderColumns, 
     updateColumn, 
@@ -93,6 +138,8 @@ export default function Home() {
 
   const handleConfirmResetApp = () => {
     clearLocalStorage(); 
+    // For logged-in users, this only clears local. Cloud data remains.
+    // Consider adding a cloud data reset if needed, which would be a separate, more destructive action.
     window.location.reload(); 
     setIsResetConfirmationDialogOpen(false);
   };
@@ -133,17 +180,17 @@ export default function Home() {
        setAuthError(error.message || "Ocorreu um erro.");
     } finally {
       setIsSubmitting(false);
-      if (authMode !== 'reset') { // Não limpar campos se for reset bem sucedido
+      if (authMode !== 'reset' || authError) { 
         setEmail('');
         setPassword('');
-      } else if (!authError) { // Limpar email se reset for bem sucedido
+      } else if (authMode === 'reset' && !authError) {
         setEmail('');
       }
     }
   };
 
 
-  if (loadingAuth || !isLoaded && currentUser) { // Apenas mostrar loading se houver usuário e dados não carregados
+  if (loadingAuth || (!isLoaded && currentUser)) {
     return (
       <div className="flex flex-col h-screen bg-background text-foreground items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -289,42 +336,53 @@ export default function Home() {
             )}
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-8 h-8 md:w-10 md:h-10">
-                <MoreVertical className="h-5 w-5" />
-                <span className="sr-only">Abrir menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {currentUser ? (
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sair
+          <div className="flex items-center gap-1">
+            {currentUser && <SyncStatusIndicator status={syncStatus} />}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="w-8 h-8 md:w-10 md:h-10">
+                  <MoreVertical className="h-5 w-5" />
+                  <span className="sr-only">Abrir menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {currentUser && (
+                  <>
+                    <DropdownMenuItem onClick={forceSync} disabled={syncStatus === 'syncing'}>
+                      <RefreshCw className={`mr-2 h-4 w-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                      Sincronizar Agora
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => setIsCreateColumnDialogOpen(true)} disabled={!currentUser && false}>
+                  Criar nova coluna
                 </DropdownMenuItem>
-              ) : (
-                // Opção de login removida daqui, pois o formulário é mostrado se não logado
-                <DropdownMenuItem disabled>Entrar/Registrar</DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setIsCreateColumnDialogOpen(true)} disabled={!currentUser && false}>
-                Criar nova coluna
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setIsEditColumnsDialogOpen(true)} disabled={!currentUser && false}>
-                Editar colunas
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setIsResetConfirmationDialogOpen(true)}> 
-                Reset App (Local)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuItem onClick={() => setIsEditColumnsDialogOpen(true)} disabled={!currentUser && false}>
+                  Editar colunas
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                 <DropdownMenuItem onClick={() => setIsResetConfirmationDialogOpen(true)}> 
+                  Reset App (Local)
+                </DropdownMenuItem>
+                 {currentUser && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sair
+                    </DropdownMenuItem>
+                  </>
+                 )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
       
       <div className="flex-grow flex flex-col overflow-hidden"> 
         <main className="container mx-auto flex-grow flex flex-col py-4 md:py-6 overflow-y-auto pb-32">
-          {kanbanState && isLoaded && ( // Adicionado isLoaded aqui também
+          {kanbanState && isLoaded && (
             <KanbanBoard
               noteToSelectCategoryFor={noteToCategorize}
               onDialogClose={handleDialogClose}
