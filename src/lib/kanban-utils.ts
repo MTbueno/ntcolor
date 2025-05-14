@@ -76,6 +76,7 @@ export const initialCoreColumnsData: Record<ColumnId, ColumnData> = getInitialKa
 export const pastelColors: string[] = [
   '#A93226', '#AF601A', '#9A7D0A', '#1E8449', '#17A589',
   '#2471A3', '#6C3483', '#B977A4', '#795548', '#455A64',
+  '#B2A2C8', '#A2C8B2', '#C8A2A2', '#95A5A6', '#2C3E50', // Novas cores adicionadas
 ];
 
 // This function now primarily loads from local storage or returns a fresh default state.
