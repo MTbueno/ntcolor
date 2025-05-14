@@ -71,30 +71,32 @@ export default function KanbanColumn({
   };
 
   const getColumnStyles = (col: ColumnData) => {
+    const baseOpacity = '33'; // 20% opacity for background
     if (col.color && col.id !== 'lixeira') {
       const tagTextColor = getContrastColor(col.color);
       return {
-        bgStyle: { backgroundColor: `${col.color}33` }, // '33' is hex for 20% opacity
+        bgStyle: { backgroundColor: `${col.color}${baseOpacity}` },
         tagStyle: { backgroundColor: col.color, color: tagTextColor },
         isCustomStyled: true, 
       };
     }
+    // Define HSL based styles for default columns ensuring they use the opacity variable
     switch (col.id) {
       case 'importante':
         return {
-          bgClass: 'bg-[hsl(var(--column-importante-bg))]', 
+          bgClass: `bg-[hsl(var(--column-importante-bg))]`, // Uses HSL with opacity from globals.css
           tagBgClass: 'bg-[hsl(var(--column-importante-tag-bg))]',
           tagTextClass: 'text-[hsl(var(--column-importante-tag-text))]',
         };
       case 'em-processo':
         return {
-          bgClass: 'bg-[hsl(var(--column-em-processo-bg))]', 
+          bgClass: `bg-[hsl(var(--column-em-processo-bg))]`,
           tagBgClass: 'bg-[hsl(var(--column-em-processo-tag-bg))]',
           tagTextClass: 'text-[hsl(var(--column-em-processo-tag-text))]',
         };
       case 'feito':
         return {
-          bgClass: 'bg-[hsl(var(--column-feito-bg))]', 
+          bgClass: `bg-[hsl(var(--column-feito-bg))]`,
           tagBgClass: 'bg-[hsl(var(--column-feito-tag-bg))]',
           tagTextClass: 'text-[hsl(var(--column-feito-tag-text))]',
         };
@@ -105,7 +107,8 @@ export default function KanbanColumn({
           tagTextClass: 'text-muted-foreground', 
         };
       default: 
-        return { bgClass: 'bg-card/20', tagBgClass: 'bg-primary', tagTextClass: 'text-primary-foreground' };
+        // Fallback for any other (potentially new, non-customized) columns
+        return { bgClass: `bg-card/${baseOpacity.toLowerCase()}`, tagBgClass: 'bg-primary', tagTextClass: 'text-primary-foreground' };
     }
   };
 
@@ -115,56 +118,53 @@ export default function KanbanColumn({
     return (
       <Accordion type="single" collapsible value={isTrashOpen ? "trash-item" : ""} onValueChange={(value) => setIsTrashOpen(!!value)}>
         <AccordionItem value="trash-item" className={cn("border-none rounded-lg overflow-hidden shadow-sm mb-4", styles.bgClass)} style={styles.bgStyle}>
-          <div 
-            className={cn(
-              "flex justify-between items-center w-full",
-              styles.tagBgClass, 
-              "p-3 md:p-4"      
-            )}
-            style={styles.tagStyle} 
-          >
+          <div className="p-0"> {/* Removed padding here to allow AccordionTrigger to span full width if needed */}
             <AccordionTrigger
               className={cn(
-                "flex items-center gap-2 p-0 font-medium hover:no-underline focus:outline-none",
-                styles.tagTextClass,
-                "flex-grow justify-start" 
+                "flex items-center justify-between w-full gap-2 p-3 md:p-4 font-medium hover:no-underline focus:outline-none",
+                styles.tagBgClass,
+                styles.tagTextClass
               )}
+              style={styles.tagStyle} 
               aria-label={isTrashOpen ? "Ocultar Lixeira" : "Mostrar Lixeira"}
             >
-              <Trash2 className={cn("h-5 w-5")} />
-              <span id={`column-title-${column.id}`} className={cn("text-base font-semibold")}>
-                {column.title}
-              </span>
+              <div className="flex items-center gap-2 flex-grow"> {/* Wrapper for icon and title */}
+                <Trash2 className="h-5 w-5" />
+                <span id={`column-title-${column.id}`} className="text-base font-semibold">
+                  {column.title}
+                </span>
+              </div>
+              {/* Chevron is part of AccordionTrigger, actions and badge are outside the clickable trigger area if part of header */}
+              <div className="flex items-center shrink-0"> 
+                {isTrashOpen && column.notes.length > 0 && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); onClearTrash(); }} // Stop propagation to prevent accordion toggle
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive px-2 py-1 h-auto mr-2" // Added margin
+                        aria-label="Limpar Lixeira"
+                    >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        <span className="hidden sm:inline">Limpar Lixeira</span>
+                    </Button>
+                )}
+                <Badge
+                  variant="secondary"
+                  className="text-sm font-medium text-[hsl(var(--column-count-text))] bg-transparent px-2 py-0.5"
+                >
+                  {column.notes.length}
+                </Badge>
+              </div>
             </AccordionTrigger>
-
-            <div className="flex items-center shrink-0 ml-auto"> 
-              {isTrashOpen && column.notes.length > 0 && (
-                  <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); onClearTrash(); }}
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive px-2 py-1 h-auto"
-                      aria-label="Limpar Lixeira"
-                  >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      <span className="hidden sm:inline">Limpar Lixeira</span>
-                  </Button>
-              )}
-              <Badge
-                variant="secondary"
-                className="text-sm font-medium text-[hsl(var(--column-count-text))] bg-transparent px-2 py-0.5 ml-2"
-              >
-                {column.notes.length}
-              </Badge>
-            </div>
           </div>
           
           <AccordionContent 
              onDragOver={(e) => e.preventDefault()} 
              onDrop={(e) => e.preventDefault()} 
-             className="max-h-[calc(100vh-250px)] md:max-h-[calc(100vh-300px)]" 
+             // className prop of AccordionContent applies to an inner div.
+             // We will constrain the ScrollArea inside it.
           >
-            <ScrollArea className="h-full"> 
+            <ScrollArea className="max-h-[60vh]"> {/* Applied max-height here */}
               <div className="p-3 md:p-4 space-y-3 min-h-[50px]">
                 {column.notes.length === 0 && (
                   <p className="text-sm text-muted-foreground italic text-center py-4">A lixeira está vazia.</p>
@@ -246,3 +246,4 @@ export default function KanbanColumn({
     </div>
   );
 }
+
