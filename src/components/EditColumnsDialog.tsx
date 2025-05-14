@@ -1,5 +1,6 @@
+
 "use client";
-import { useState, useEffect, type DragEvent } from 'react';
+import { useState, useEffect } from 'react';
 import type { ColumnData, ColumnId } from '@/types/kanban';
 import {
   AlertDialog,
@@ -15,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GripVertical, Trash2, Edit3 } from 'lucide-react';
+import { Trash2, Edit3, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pastelColors, initialCoreColumnsData } from '@/lib/kanban-utils'; 
 
@@ -60,33 +61,26 @@ export default function EditColumnsDialog({
     }
   }, [isOpen, initialColumns, initialOrder, trashColumnId]);
 
-
-  const handleDragStart = (e: DragEvent<HTMLDivElement>, index: number) => {
-    e.dataTransfer.setData('application/json', JSON.stringify({ index }));
+  const handleMoveColumnUp = (index: number) => {
+    if (index === 0) return;
+    setOrderedColumns(prev => {
+      const newOrder = [...prev];
+      const temp = newOrder[index];
+      newOrder[index] = newOrder[index - 1];
+      newOrder[index - 1] = temp;
+      return newOrder;
+    });
   };
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>, targetIndex: number) => {
-    e.preventDefault();
-    const transferData = e.dataTransfer.getData('application/json');
-    if (!transferData) return;
-    
-    try {
-        const { index: sourceIndex } = JSON.parse(transferData);
-        if (sourceIndex === targetIndex) return;
-
-        setOrderedColumns(prev => {
-          const newOrder = [...prev];
-          const [draggedItem] = newOrder.splice(sourceIndex, 1);
-          newOrder.splice(targetIndex, 0, draggedItem);
-          return newOrder;
-        });
-    } catch (error) {
-        console.error("Error parsing drag data:", error);
-    }
-  };
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
+  const handleMoveColumnDown = (index: number) => {
+    if (index === orderedColumns.length - 1) return;
+    setOrderedColumns(prev => {
+      const newOrder = [...prev];
+      const temp = newOrder[index];
+      newOrder[index] = newOrder[index + 1];
+      newOrder[index + 1] = temp;
+      return newOrder;
+    });
   };
   
   const handleSaveChangesAndClose = () => {
@@ -118,7 +112,6 @@ export default function EditColumnsDialog({
      setEditingColumn(null); 
   };
 
-
   if (!isOpen) return null;
 
   return (
@@ -128,7 +121,7 @@ export default function EditColumnsDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Editar Colunas</AlertDialogTitle>
           <AlertDialogDescription>
-            Arraste para reordenar. Você pode editar ou excluir colunas customizadas.
+            Use as setas para reordenar. Você pode editar ou excluir colunas.
           </AlertDialogDescription>
         </AlertDialogHeader>
         
@@ -137,14 +130,9 @@ export default function EditColumnsDialog({
             {orderedColumns.map((column, index) => (
               <div
                 key={column.id}
-                draggable={true} 
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDrop={(e) => handleDrop(e, index)}
-                onDragOver={handleDragOver}
-                className="flex items-center justify-between p-3 border rounded-md bg-card hover:bg-accent/50 cursor-grab active:cursor-grabbing"
+                className="flex items-center justify-between p-3 border rounded-md bg-card"
               >
                 <div className="flex items-center gap-2">
-                  <GripVertical className="h-5 w-5 text-muted-foreground" />
                   <span 
                     className="font-medium"
                     style={column.color ? { borderLeft: `4px solid ${column.color}`, paddingLeft: '8px' } : {}}
@@ -153,6 +141,12 @@ export default function EditColumnsDialog({
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleMoveColumnUp(index)} disabled={index === 0}>
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleMoveColumnDown(index)} disabled={index === orderedColumns.length - 1}>
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditModal(column)}>
                     <Edit3 className="h-4 w-4" />
                   </Button>
