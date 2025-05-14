@@ -35,31 +35,26 @@ export function useKanbanState() {
     if (!userId || !state || !db) return;
     setSyncStatus('syncing');
     try {
+      // Sanitize state for Firestore: remove undefined values
       const stateForFirestore = JSON.parse(JSON.stringify(state));
       await setDoc(getFirestoreDocRef(userId), stateForFirestore);
       setSyncStatus('synced');
-      setTimeout(() => setSyncStatus('idle'), 3000); // Volta para idle após 3s
+      setTimeout(() => setSyncStatus('idle'), 3000); 
     } catch (error) {
       console.error("Error saving state to Firestore:", error);
       setSyncStatus('error');
-      setTimeout(() => setSyncStatus('idle'), 5000); // Volta para idle após 5s
-      // Log the state that caused the error for easier debugging
+      setTimeout(() => setSyncStatus('idle'), 5000);
       if (error instanceof Error && error.message.includes("Unsupported field value: undefined")) {
-        console.error("State snapshot that caused Firestore error (original, before stringify):", state);
+        console.error("State snapshot that caused Firestore error (original):", state);
         console.error("State snapshot that caused Firestore error (processed for Firestore):", JSON.parse(JSON.stringify(state)));
       }
     }
   };
 
-  // Debounced save to Firestore for automatic updates
   const debouncedSaveToFirestore = useCallback(debounce(performSaveToFirestore, 2000), [getFirestoreDocRef, db]);
 
-  // Force sync function for manual trigger
   const forceSync = useCallback(async () => {
     if (currentUser && kanbanState && db) {
-      // Cancel any pending debounced save
-      // This specific debounce implementation doesn't have a direct cancel,
-      // but calling it directly achieves a similar immediate effect for this user action.
       await performSaveToFirestore(currentUser.uid, kanbanState);
     } else if (!currentUser) {
       console.warn("Cannot force sync: no user logged in.");
@@ -71,7 +66,6 @@ export function useKanbanState() {
   }, [currentUser, kanbanState, performSaveToFirestore, db]);
 
 
-  // Effect for initial data loading and Firestore real-time updates
   useEffect(() => {
     let unsubscribe: Unsubscribe | undefined;
 
@@ -87,18 +81,16 @@ export function useKanbanState() {
           } else {
             const defaultState = getInitialKanbanData();
             setKanbanState(defaultState);
-            await performSaveToFirestore(currentUser.uid, defaultState);
+            await performSaveToFirestore(currentUser.uid, JSON.parse(JSON.stringify(defaultState)));
           }
         } else {
           const localState = loadStateFromLocalStorage();
           setKanbanState(localState);
-          await performSaveToFirestore(currentUser.uid, localState);
+          await performSaveToFirestore(currentUser.uid, JSON.parse(JSON.stringify(localState)));
         }
         setIsLoaded(true);
-        // After initial load/sync from Firestore, set status to synced or idle.
-        // If onSnapshot fires due to local change that got synced, this keeps status accurate.
-        if (syncStatus !== 'syncing') { // Avoid overriding if a sync is in progress
-           setSyncStatus('idle'); // Or 'synced' briefly
+        if (syncStatus !== 'syncing') { 
+           setSyncStatus('idle'); 
         }
       }, (error) => {
         console.error("Error listening to Firestore:", error);
@@ -123,10 +115,9 @@ export function useKanbanState() {
         unsubscribe();
       }
     };
-  }, [currentUser, getFirestoreDocRef, db]); // Removed performSaveToFirestore from deps to avoid loops
+  }, [currentUser, getFirestoreDocRef, db]);
 
 
-  // Effect for saving state automatically
   useEffect(() => {
     if (!isLoaded || !kanbanState) {
       return;
@@ -246,29 +237,47 @@ export function useKanbanState() {
 
   const handleDrop = useCallback((e: DragEvent<HTMLDivElement>, targetColumnId: ColumnId) => {
     e.preventDefault();
-    if (targetColumnId === trashColumnId) return;
-
-    try {
-      const transferData = e.dataTransfer.getData('application/json');
-      if (!transferData) return;
-      const { noteId, sourceColumnId } = JSON.parse(transferData) as { noteId: string; sourceColumnId: ColumnId };
-
-      if (sourceColumnId === targetColumnId || sourceColumnId === trashColumnId) return;
-
-      updateState(prevState => {
-        const sourceCol = prevState.columns[sourceColumnId];
-        const targetCol = prevState.columns[targetColumnId];
-        if (!sourceCol || !targetCol) return prevState;
-
-        const noteToMove = sourceCol.notes.find(note => note.id === noteId);
-        if (!noteToMove) return prevState;
-
-        const newSourceNotes = sourceCol.notes.filter(note => note.id !== noteId);
+    const transferData = e.dataTransfer.getData('application/json');
+    if (!transferData) return;
+  
+    const { noteId: draggedNoteId, sourceColumnId } = JSON.parse(transferData) as { noteId: string; sourceColumnId: ColumnId };
+  
+    if (sourceColumnId === trashColumnId) return; // Cannot drag from trash this way
+  
+    const targetElement = e.target as HTMLElement;
+    const droppedOnNoteElement = targetElement.closest('[data-note-id]');
+    const droppedOnNoteId = droppedOnNoteElement?.getAttribute('data-note-id') || null;
+  
+    updateState(prevState => {
+      const sourceCol = prevState.columns[sourceColumnId];
+      const targetCol = prevState.columns[targetColumnId];
+      if (!sourceCol || !targetCol) return prevState;
+  
+      const noteToMove = sourceCol.notes.find(note => note.id === draggedNoteId);
+      if (!noteToMove) return prevState;
+  
+      // Moving to a different column
+      if (sourceColumnId !== targetColumnId) {
+        if (targetColumnId === trashColumnId) return prevState; // Use deleteNote for trash
+  
+        const newSourceNotes = sourceCol.notes.filter(note => note.id !== draggedNoteId);
+        let newTargetNotes = [...(Array.isArray(targetCol.notes) ? targetCol.notes : [])];
+  
+        // If dropped on a specific note in the target column, insert before it
+        if (droppedOnNoteId && targetCol.id === targetColumnId && targetCol.notes.find(n => n.id === droppedOnNoteId)) {
+          const targetIndex = newTargetNotes.findIndex(note => note.id === droppedOnNoteId);
+          if (targetIndex !== -1) {
+            newTargetNotes.splice(targetIndex, 0, noteToMove);
+          } else {
+            newTargetNotes.push(noteToMove); // Fallback if target note not found in current list
+          }
+        } else {
+          newTargetNotes.push(noteToMove); // Append to end if dropped on column bg or empty space
+        }
         
-        const currentTargetNotes = Array.isArray(targetCol.notes) ? targetCol.notes : [];
-        const filteredTargetNotes = currentTargetNotes.filter(n => n.id !== noteToMove.id);
-        const newTargetNotes = [...filteredTargetNotes, noteToMove];
-        
+        // Ensure uniqueness in target column (defensive)
+        newTargetNotes = newTargetNotes.filter((note, index, self) => index === self.findIndex((t) => t.id === note.id));
+  
         return {
           ...prevState,
           columns: {
@@ -277,10 +286,44 @@ export function useKanbanState() {
             [targetColumnId]: { ...targetCol, notes: newTargetNotes },
           }
         };
-      });
-    } catch (error) {
-      console.error("Error processing drop event:", error);
-    }
+      }
+      // Reordering within the same column
+      else if (sourceColumnId === targetColumnId) {
+        if (draggedNoteId === droppedOnNoteId) return prevState; // Dropped on itself
+  
+        let currentNotes = [...sourceCol.notes];
+        const draggedItemIndex = currentNotes.findIndex(note => note.id === draggedNoteId);
+  
+        if (draggedItemIndex === -1) return prevState; // Should not happen
+  
+        const [draggedItem] = currentNotes.splice(draggedItemIndex, 1); // Remove item
+  
+        if (droppedOnNoteId) {
+          const targetItemIndex = currentNotes.findIndex(note => note.id === droppedOnNoteId);
+          if (targetItemIndex !== -1) {
+            currentNotes.splice(targetItemIndex, 0, draggedItem); // Insert before the target note
+          } else {
+            // If targetNoteId is not found (e.g. element removed, or drop was on column bg after all)
+            currentNotes.push(draggedItem); // Append to the end
+          }
+        } else {
+          // Dropped on the column background (not a specific note) within the same column. Append to the end.
+          currentNotes.push(draggedItem);
+        }
+        
+        // Ensure uniqueness (defensive)
+        currentNotes = currentNotes.filter((note, index, self) => index === self.findIndex((t) => t.id === note.id));
+  
+        return {
+          ...prevState,
+          columns: {
+            ...prevState.columns,
+            [sourceColumnId]: { ...sourceCol, notes: currentNotes }
+          }
+        };
+      }
+      return prevState;
+    });
   }, [updateState, trashColumnId]);
 
   const createColumn = useCallback((title: string, color: string) => {
@@ -303,16 +346,22 @@ export function useKanbanState() {
 
   const reorderColumns = useCallback((newColumnOrderFromDialog: ColumnId[]) => {
     updateState(currentState => {
+      // Filter out trashColumnId and ensure all IDs are valid columns that exist
       const validOrderedIds = newColumnOrderFromDialog.filter(id => currentState.columns[id] && id !== trashColumnId);
       
-      const currentNonTrashIds = currentState.columnOrder.filter(id => id !== trashColumnId);
+      // Ensure all existing non-trash columns are present in the new order.
+      // If some were not in newColumnOrderFromDialog (e.g. due to a bug in dialog), append them.
+      const currentNonTrashIds = currentState.columnOrder.filter(id => id !== trashColumnId && currentState.columns[id]);
       const orderedSet = new Set(validOrderedIds);
       currentNonTrashIds.forEach(id => {
         if (!orderedSet.has(id)) {
-          validOrderedIds.push(id);
+          validOrderedIds.push(id); // Append missing valid columns
         }
       });
       
+      // Ensure columnOrder always contains the trashColumnId if it exists in columns, but it's not part of draggable reorder
+      // The KanbanBoard component handles rendering trashColumnId separately if needed.
+      // The main columnOrder should only contain displayable/reorderable columns.
       return { ...currentState, columnOrder: validOrderedIds };
     });
   }, [updateState, trashColumnId]);
@@ -322,9 +371,16 @@ export function useKanbanState() {
       const columnToUpdate = prevState.columns[columnId];
       if (!columnToUpdate || columnId === trashColumnId) return prevState;
       
+      // Determine if the title can be edited based on whether it's a custom column
+      // or if its initial state was marked as editable (though defaults are not).
       const defaultInitialData = getInitialKanbanData();
-      const coreColumnIsCustomFlag = defaultInitialData.columns[columnId]?.isCustom;
-      const canEditTitle = columnToUpdate.isCustom || coreColumnIsCustomFlag === true;
+      // A column is truly "core" if it exists in default data AND isCustom is false there.
+      const isCoreNonEditableTitle = defaultInitialData.columns[columnId] && defaultInitialData.columns[columnId].isCustom === false;
+
+      // Allow title change if it's a custom column OR it's a core column that somehow got 'isCustom:true' (legacy)
+      // OR if it's a core column but we decide to allow its title to be changed (current default core columns are not editable by title)
+      const canEditTitle = columnToUpdate.isCustom === true || !isCoreNonEditableTitle;
+
 
       const newTitle = canEditTitle && title.trim() !== "" ? title.trim() : columnToUpdate.title;
       
@@ -335,17 +391,24 @@ export function useKanbanState() {
   const deleteColumn = useCallback((columnId: ColumnId) => {
     updateState(currentState => {
       const columnToDelete = currentState.columns[columnId];
+      // Prevent deleting the trash column or non-existent columns
       if (!columnToDelete || columnId === trashColumnId) return currentState;
 
+      // Filter out the column to be deleted from the order
       const newColumnOrder = currentState.columnOrder.filter(id => id !== columnId);
+      
+      // Remove the column from the columns object
       const { [columnId]: _deletedColumn, ...remainingColumns } = currentState.columns;
       let updatedColumnsObject = remainingColumns;
 
+      // If the column to delete has notes and the trash column exists, move notes to trash
       if (columnToDelete.notes.length > 0 && updatedColumnsObject[trashColumnId]) {
         const trashColData = updatedColumnsObject[trashColumnId];
+        // Mark notes with their previous column for potential restoration context
         const notesToMoveToTrash = columnToDelete.notes.map(note => ({ ...note, previousColumnId: columnId }));
         
         const currentTrashNotes = Array.isArray(trashColData.notes) ? trashColData.notes : [];
+        // Avoid duplicates in trash if somehow a note with same ID is already there
         const uniqueNotesToMove = notesToMoveToTrash.filter(moveToTrashNote =>
             !currentTrashNotes.some(trashNote => trashNote.id === moveToTrashNote.id)
         );
@@ -403,3 +466,4 @@ export function useKanbanState() {
     trashColumnId,
   };
 }
+

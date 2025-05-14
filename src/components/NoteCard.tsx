@@ -42,8 +42,12 @@ function darkenColor(hexcolor: string, percent: number): string {
 
 function getLinkColorForColumn(columnColor?: string, columnId?: ColumnId): string {
   if (columnColor && columnId !== 'lixeira') {
-    return 'hsl(var(--primary))'; 
+    // For custom columns with a color, use a slightly darkened version of that color for links
+    // or a fixed contrasting color if darkening isn't enough.
+    // For now, let's use primary for simplicity, can be refined.
+    return 'hsl(var(--primary))'; // Or a processed version of columnColor
   }
+  // For default columns, use their specific tag background colors for links
   switch (columnId) {
     case 'importante':
       return 'hsl(var(--column-importante-tag-bg))'; 
@@ -52,34 +56,37 @@ function getLinkColorForColumn(columnColor?: string, columnId?: ColumnId): strin
     case 'feito':
       return 'hsl(var(--column-feito-tag-bg))';
     default:
-      return 'hsl(var(--primary))'; 
+      return 'hsl(var(--primary))'; // Fallback for other cases or lixeira (though links in lixeira are less common)
   }
 }
 
 function parseContentWithLinks(content: string, linkColor: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
+  // Regex to find @mentions that are not part of an email address or other characters
   const mentionRegex = /(?<!\S)@([a-zA-Z0-9_]+)/g;
   let match;
 
   while ((match = mentionRegex.exec(content)) !== null) {
     const username = match[1];
-    const fullMention = match[0]; 
+    const fullMention = match[0]; // Includes the "@"
     const startIndex = match.index;
 
+    // Add text before the mention
     if (startIndex > lastIndex) {
       parts.push(content.substring(lastIndex, startIndex));
     }
 
+    // Add the mention as a link
     parts.push(
       <a
-        key={`mention-${startIndex}-${username}`}
+        key={`mention-${startIndex}-${username}`} // Unique key for React
         href={`https://instagram.com/${username}`}
         target="_blank"
         rel="noopener noreferrer"
         style={{ color: linkColor }}
         className="hover:underline"
-        onClick={(e) => e.stopPropagation()} 
+        onClick={(e) => e.stopPropagation()} // Prevent card drag or other parent clicks
       >
         {fullMention}
       </a>
@@ -87,10 +94,12 @@ function parseContentWithLinks(content: string, linkColor: string): React.ReactN
     lastIndex = mentionRegex.lastIndex;
   }
 
+  // Add any remaining text after the last mention
   if (lastIndex < content.length) {
     parts.push(content.substring(lastIndex));
   }
   
+  // If no mentions were found, but content exists, return the original content
   if (parts.length === 0 && content) {
     return [content];
   }
@@ -102,11 +111,13 @@ export default function NoteCard({ note, columnId, columnColor, isCustomColumn, 
   const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] = useState(false);
   
   const getNoteCardStyles = () => {
-    const opacityHex = 'B3'; // 70% opacity
+    const opacityHex = 'B3'; // 70% opacity (0.7 * 255 = 178.5 -> B3 in hex)
     if (columnColor && columnId !== 'lixeira') {
-      const noteBg = darkenColor(columnColor, 10); 
-      return { style: { backgroundColor: `${noteBg}${opacityHex}` } }; 
+      // For custom columns, try to use their color with opacity
+      const noteBg = darkenColor(columnColor, 10); // Darken slightly for better contrast if needed
+      return { style: { backgroundColor: `${noteBg}${opacityHex}` } }; // Apply 70% opacity
     }
+    // For default columns, use the HSL variables defined in globals.css
     switch (columnId) {
       case 'importante':
         return { className: `bg-[hsl(var(--note-card-importante-bg))]` };
@@ -115,8 +126,11 @@ export default function NoteCard({ note, columnId, columnColor, isCustomColumn, 
       case 'feito':
         return { className: `bg-[hsl(var(--note-card-feito-bg))]` };
       case 'lixeira':
+        // Lixeira notes use a specific muted background also defined with opacity
         return { className: `bg-[hsl(var(--note-card-lixeira-bg))] border-muted-foreground/30` };
       default:
+        // Fallback for any other column type (should ideally not happen with defined columns)
+        // Using card default with applied opacity.
         return { className: `bg-card/${opacityHex.toLowerCase()}` }; 
     }
   };
@@ -135,12 +149,12 @@ export default function NoteCard({ note, columnId, columnColor, isCustomColumn, 
   }, [note.attachment]);
 
   const handleDeleteClick = (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation(); 
+    e.stopPropagation(); // Prevent card drag
     onDelete(note.id, columnId);
   };
 
   const handleRestoreClick = (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation(); 
+    e.stopPropagation(); // Prevent card drag
     onRestore(note.id);
   };
 
@@ -151,20 +165,22 @@ export default function NoteCard({ note, columnId, columnColor, isCustomColumn, 
 
   const handleSaveAttachment = (attachmentContent: string) => {
     onAddOrUpdateAttachment(note.id, columnId, attachmentContent);
-    setIsAttachmentDialogOpen(false); 
+    setIsAttachmentDialogOpen(false); // Close dialog after saving
   };
 
   return (
     <>
       <Card
+        data-note-id={note.id} // Added data-note-id
         draggable={columnId !== 'lixeira'}
         onDragStart={(e) => columnId !== 'lixeira' && onDragStart(e, note.id, columnId)}
+        onDragOver={(e) => e.preventDefault()} // Allow dropping over this card
         className={cn(
           "text-card-foreground shadow-lg hover:shadow-xl transition-shadow duration-200 relative group", 
           columnId !== 'lixeira' ? "cursor-grab active:cursor-grabbing" : "cursor-default",
-          noteCardStyles.className 
+          noteCardStyles.className // This applies the HSL-based background
         )}
-        style={noteCardStyles.style} 
+        style={noteCardStyles.style} // This applies hex-based background with opacity
         aria-label={`Nota: ${note.content}`}
       >
         <CardContent className="p-3">
@@ -180,13 +196,14 @@ export default function NoteCard({ note, columnId, columnColor, isCustomColumn, 
               </div>
             </div>
 
+            {/* Action Buttons Area - aligned to the start of the note content */}
             <div className="flex items-center space-x-1 ml-2 flex-shrink-0 self-start">
               {columnId !== 'lixeira' && (
                 <Button
                   variant="ghost"
                   size="icon"
                   className={cn(
-                      "h-7 w-7",
+                      "h-7 w-7", // Consistent size
                       note.attachment ? "text-foreground hover:text-foreground/80" : "text-muted-foreground hover:text-muted-foreground/80"
                   )}
                   onClick={handleAttachmentClick}
@@ -220,6 +237,7 @@ export default function NoteCard({ note, columnId, columnColor, isCustomColumn, 
             </div>
           </div>
           
+          {/* Attachment Preview - also indented */}
           {attachmentPreview && (
             <div className="mt-1.5 pl-4"> {/* Indent preview to align with main text */}
               <p className="text-xs text-foreground opacity-60 break-words">
@@ -230,6 +248,7 @@ export default function NoteCard({ note, columnId, columnColor, isCustomColumn, 
         </CardContent>
       </Card>
       
+      {/* Attachment Dialog - remains unchanged */}
       {isAttachmentDialogOpen && (
         <NoteAttachmentDialog
             isOpen={isAttachmentDialogOpen}
