@@ -1,7 +1,9 @@
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import PWARegistration from '@/components/PWARegistration';
+import { AuthProvider } from '@/contexts/AuthContext'; // Import AuthProvider
 
 const inter = Inter({
   subsets: ['latin'],
@@ -19,8 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: '#0A0F1E', // Dark theme color
-  // Setting initial-scale, maximum-scale, and user-scalable to prevent auto-zoom on input focus on iOS
+  themeColor: '#0A0F1E', 
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -38,7 +39,9 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="antialiased">
-        {children}
+        <AuthProvider> {/* Wrap children with AuthProvider */}
+          {children}
+        </AuthProvider>
         <PWARegistration />
       </body>
     </html>
