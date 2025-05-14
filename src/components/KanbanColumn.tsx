@@ -123,7 +123,7 @@ export default function KanbanColumn({
                 "flex items-center justify-between w-full gap-2 p-3 md:p-4 font-medium hover:no-underline focus:outline-none",
                 styles.tagBgClass,
                 styles.tagTextClass,
-                "hover:bg-accent/10" // Adicionado para consistência de hover
+                "hover:bg-accent/10"
               )}
               style={styles.tagStyle} 
               aria-label={isTrashOpen ? "Ocultar Lixeira" : "Mostrar Lixeira"}
@@ -161,20 +161,15 @@ export default function KanbanColumn({
           </div>
           
           <AccordionContent
-             className="flex flex-col" // Torna o container interno do AccordionContent um flex container
              onDragOver={(e) => e.preventDefault()} 
              onDrop={(e) => e.preventDefault()} 
           >
             {/* 
-              A classe `flex-grow` permite que ScrollArea tente preencher o espaço.
-              `min-h-0` é importante para flex children com max-height para permitir que encolham.
-              `max-h-[calc(60vh-theme(spacing.8))]` (aproximadamente 60vh menos o padding de AccordionContent)
-              ou uma altura mais fixa como `max-h-[300px]` ou `max-h-[400px]` pode ser mais previsível.
-              Testaremos com 60vh, mas se for necessário, subtrair o padding vertical do AccordionContent (pb-4, pt-0) pode ajudar.
-              O padding padrão de AccordionContent é pb-4 (1rem), pt-0.
+              O AccordionContent internamente tem um div com padding (pb-4 pt-0).
+              Este novo div abaixo é para controlar o scroll das notas.
             */}
-            <ScrollArea className="flex-grow min-h-0 max-h-[60vh]"> 
-              <div className="p-3 md:p-4 space-y-3"> {/* Padding já estava aqui, mantido. Removido min-h daqui */}
+            <div className="max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-secondary scrollbar-track-transparent">
+              <div className="p-3 md:p-4 space-y-3">
                 {column.notes.length === 0 && (
                   <p className="text-sm text-muted-foreground italic text-center py-4">A lixeira está vazia.</p>
                 )}
@@ -192,7 +187,7 @@ export default function KanbanColumn({
                   />
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
@@ -232,7 +227,7 @@ export default function KanbanColumn({
         </div>
       </div>
 
-      <ScrollArea className="flex-grow"> {/* Para colunas normais, flex-grow deve funcionar bem */}
+      <ScrollArea className="flex-grow">
          <div className="p-3 md:p-4 space-y-3 min-h-[100px]">
           {column.notes.length === 0 && (
             <p className="text-sm text-muted-foreground italic text-center py-4">Nenhuma nota nesta coluna.</p>
@@ -255,4 +250,3 @@ export default function KanbanColumn({
     </div>
   );
 }
-
