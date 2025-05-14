@@ -19,6 +19,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   const signInWithGoogle = async () => {
+    if (!auth) {
+      console.error("Firebase auth is not initialized. Check Firebase configuration.");
+      return;
+    }
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
@@ -28,6 +32,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    if (!auth) {
+      console.error("Firebase auth is not initialized. Check Firebase configuration.");
+      return;
+    }
     try {
       await firebaseSignOut(auth);
     } catch (error) {
@@ -37,6 +45,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    if (auth && auth.app && auth.app.options) {
+      console.log('Firebase Auth Domain (SDK client-side):', auth.app.options.authDomain);
+    } else {
+      console.warn('Firebase auth object or auth.app.options is not fully initialized when trying to log authDomain.');
+    }
+
+    if (!auth) {
+      console.error("Firebase auth is not initialized in onAuthStateChanged. Check Firebase config.");
+      setLoadingAuth(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setLoadingAuth(false);
@@ -61,3 +81,4 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
