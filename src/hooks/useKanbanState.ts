@@ -35,11 +35,10 @@ export function useKanbanState() {
     if (!userId || !state || !db) return;
     setSyncStatus('syncing');
     try {
-      // Sanitize state for Firestore: remove undefined values
       const stateForFirestore = JSON.parse(JSON.stringify(state));
       await setDoc(getFirestoreDocRef(userId), stateForFirestore);
       setSyncStatus('synced');
-      setTimeout(() => setSyncStatus('idle'), 3000); 
+      setTimeout(() => setSyncStatus('idle'), 2000); 
     } catch (error) {
       console.error("Error saving state to Firestore:", error);
       setSyncStatus('error');
@@ -70,44 +69,59 @@ export function useKanbanState() {
     let unsubscribe: Unsubscribe | undefined;
 
     if (currentUser && db) {
-      setIsLoaded(false);
+      setIsLoaded(false); // Resetar isLoaded para indicar carregamento do Firestore
       const docRef = getFirestoreDocRef(currentUser.uid);
       
       unsubscribe = onSnapshot(docRef, async (docSnap) => {
+        let newState: KanbanState;
         if (docSnap.exists()) {
-          const firestoreState = docSnap.data() as KanbanState;
-          if (firestoreState && firestoreState.columns && firestoreState.columnOrder) {
-             setKanbanState(firestoreState);
+          const firestoreData = docSnap.data() as KanbanState;
+          // Validação mais robusta dos dados do Firestore
+          if (firestoreData && 
+              typeof firestoreData.columns === 'object' && 
+              firestoreData.columns !== null && 
+              Array.isArray(firestoreData.columnOrder)) {
+            newState = firestoreData;
           } else {
-            const defaultState = getInitialKanbanData();
-            setKanbanState(defaultState);
-            await performSaveToFirestore(currentUser.uid, JSON.parse(JSON.stringify(defaultState)));
+            // Documento existe mas está corrompido/incompleto.
+            // Carrega o padrão localmente. O próximo save (se o usuário interagir)
+            // persistirá este estado padrão, efetivamente "corrigindo" o doc corrompido.
+            console.warn(`Firestore data for user ${currentUser.uid} is malformed. Using default state LOCALLY. This will be saved to Firestore on next user interaction if data remains malformed.`);
+            newState = getInitialKanbanData();
+            // Opcional: poderia tentar salvar o estado padrão aqui imediatamente para corrigir,
+            // mas é mais seguro esperar uma interação do usuário para evitar sobrescritas
+            // se for um problema de leitura parcial temporário.
+            // Se decidir salvar: await performSaveToFirestore(currentUser.uid, JSON.parse(JSON.stringify(newState)));
           }
         } else {
-          const localState = loadStateFromLocalStorage();
-          setKanbanState(localState);
-          await performSaveToFirestore(currentUser.uid, JSON.parse(JSON.stringify(localState)));
+          // Usuário logado, mas sem dados no Firestore (primeiro login ou dados limpos)
+          console.log(`No Firestore data for user ${currentUser.uid}. Initializing with default state and saving to Firestore.`);
+          newState = getInitialKanbanData();
+          // Salva o estado padrão no Firestore para o novo usuário
+          await performSaveToFirestore(currentUser.uid, JSON.parse(JSON.stringify(newState)));
         }
-        setIsLoaded(true);
-        if (syncStatus !== 'syncing') { 
-           setSyncStatus('idle'); 
-        }
+        setKanbanState(newState);
+        setIsLoaded(true); // Definir isLoaded APÓS o estado ser definido
       }, (error) => {
         console.error("Error listening to Firestore:", error);
-        setKanbanState(loadStateFromLocalStorage());
-        setIsLoaded(true);
+        // Em caso de erro ao ouvir, carregar o estado padrão localmente para o app não quebrar.
+        // Não salvar no Firestore aqui, pois pode haver um problema de conexão/permissão.
+        setKanbanState(getInitialKanbanData());
+        setIsLoaded(true); // Definir isLoaded APÓS o estado ser definido
         setSyncStatus('error');
       });
 
     } else if (!currentUser) {
+      // Usuário não logado, usar localStorage
       setKanbanState(loadStateFromLocalStorage());
-      setIsLoaded(true);
+      setIsLoaded(true); // Definir isLoaded APÓS o estado ser definido
       setSyncStatus('idle'); 
     } else if (!db && currentUser) {
-        console.error("Firestore db object is not available. Kanban data will rely on local storage.");
-        setKanbanState(loadStateFromLocalStorage());
-        setIsLoaded(true);
-        setSyncStatus('idle');
+        // db não está disponível, mas usuário está logado. Cenário de erro.
+        console.error("Firestore db object is not available. Kanban data will rely on local storage for logged in user (fallback).");
+        setKanbanState(loadStateFromLocalStorage()); // Fallback para localStorage
+        setIsLoaded(true); // Definir isLoaded APÓS o estado ser definido
+        setSyncStatus('error'); // Indicar que a sincronização com a nuvem não é possível
     }
 
     return () => {
@@ -115,15 +129,17 @@ export function useKanbanState() {
         unsubscribe();
       }
     };
-  }, [currentUser, getFirestoreDocRef, db]);
+  }, [currentUser, getFirestoreDocRef, db]); // performSaveToFirestore foi removido das dependências para evitar loops potenciais, já que é estável com useCallback
 
 
   useEffect(() => {
+    // Só salvar se estiver carregado e o estado existir
     if (!isLoaded || !kanbanState) {
       return;
     }
 
     if (currentUser && db) {
+      // kanbanState aqui já deve ser o mais recente, seja do Firestore ou de uma ação do usuário
       debouncedSaveToFirestore(currentUser.uid, kanbanState);
     } else if (!currentUser) {
       saveStateToLocalStorage(kanbanState);
@@ -134,7 +150,9 @@ export function useKanbanState() {
   const updateState = useCallback((updater: (prevState: KanbanState) => KanbanState) => {
     setKanbanState(prevState => {
       if (!prevState) {
-        const initialState = getInitialKanbanData();
+        // Se o estado anterior for null, inicialize com o padrão antes de aplicar o updater
+        // Isso é mais relevante para o primeiro carregamento antes do Firestore/localStorage ser lido
+        const initialState = getInitialKanbanData(); 
         return updater(initialState);
       }
       return updater(prevState);
@@ -145,10 +163,14 @@ export function useKanbanState() {
     const newNote: Note = {
       id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       content,
+      attachment: undefined, // Explicitamente definir campos opcionais
+      previousColumnId: undefined,
     };
     updateState(prevState => {
       const column = prevState.columns[columnId];
-      if (!column) return prevState;
+      if (!column) return prevState; // Coluna não existe
+      
+      // Garante que notes seja sempre um array
       const currentNotes = Array.isArray(column.notes) ? column.notes : [];
       const updatedNotes = [...currentNotes, newNote];
       return { ...prevState, columns: { ...prevState.columns, [columnId]: { ...column, notes: updatedNotes } } };
@@ -164,13 +186,16 @@ export function useKanbanState() {
       const noteToMove = sourceCol.notes.find(note => note.id === noteId);
       if (!noteToMove) return prevState;
 
+      // Adiciona previousColumnId antes de mover para lixeira
       const noteWithPrevColInfo = { ...noteToMove, previousColumnId: sourceColumnId };
       
       const newSourceNotes = sourceCol.notes.filter(note => note.id !== noteId);
       
+      // Garante que notes na lixeira seja um array e remove duplicatas por ID antes de adicionar
       const currentTrashNotes = Array.isArray(trashCol.notes) ? trashCol.notes : [];
       const filteredTrashNotes = currentTrashNotes.filter(n => n.id !== noteWithPrevColInfo.id);
       const newTrashNotes = [...filteredTrashNotes, noteWithPrevColInfo];
+
 
       return {
         ...prevState,
@@ -191,40 +216,45 @@ export function useKanbanState() {
       const noteToRestore = trashCol.notes.find(note => note.id === noteId);
       if (!noteToRestore) return prevState;
 
+      // Define a coluna de destino para a restauração
       let targetColumnId = noteToRestore.previousColumnId;
 
+      // Fallback se previousColumnId não existir, estiver inválido ou for a própria lixeira
       if (!targetColumnId || !prevState.columns[targetColumnId] || targetColumnId === trashColumnId) {
+        // Tenta encontrar a primeira coluna não-lixeira na ordem definida
         targetColumnId = prevState.columnOrder.find(id => id !== trashColumnId && prevState.columns[id]);
+        // Se ainda não encontrou (ex: só existe a lixeira), usa a primeira coluna do estado padrão
         if (!targetColumnId) {
-          targetColumnId = getInitialKanbanData().columnOrder[0];
+          const defaultInitialState = getInitialKanbanData();
+          targetColumnId = defaultInitialState.columnOrder[0];
+           // Garante que essa coluna padrão exista no estado atual, se não, loga erro.
            if (!prevState.columns[targetColumnId]) {
+             // Último recurso: primeira coluna disponível que não seja a lixeira
              const fallbackTarget = Object.keys(prevState.columns).find(id => id !== trashColumnId);
              if (fallbackTarget) targetColumnId = fallbackTarget;
-             else { console.error("No valid column to restore note to."); return prevState; }
+             else { console.error("No valid column to restore note to. Critical state error."); return prevState; }
            }
         }
       }
       
-      let targetCol = prevState.columns[targetColumnId];
-      if (!targetCol) {
-        console.error(`Target column ${targetColumnId} for restoration does not exist.`);
-        return prevState;
-      }
-
+      const targetCol = prevState.columns[targetColumnId!]; // Sabemos que targetColumnId não será null aqui
+      // Limpa previousColumnId da nota restaurada
       const { previousColumnId, ...restoredNoteData } = noteToRestore;
       
       const newTrashNotes = trashCol.notes.filter(note => note.id !== noteId);
       
+      // Garante que notes na targetCol seja um array e remove duplicatas por ID antes de adicionar
       const currentTargetNotes = Array.isArray(targetCol.notes) ? targetCol.notes : [];
       const filteredTargetNotes = currentTargetNotes.filter(n => n.id !== restoredNoteData.id);
       const newTargetNotes = [...filteredTargetNotes, restoredNoteData];
+
 
       return {
         ...prevState,
         columns: {
           ...prevState.columns,
           [trashColumnId]: { ...trashCol, notes: newTrashNotes },
-          [targetColumnId]: { ...targetCol, notes: newTargetNotes },
+          [targetColumnId!]: { ...targetCol, notes: newTargetNotes },
         }
       };
     });
@@ -242,87 +272,84 @@ export function useKanbanState() {
   
     const { noteId: draggedNoteId, sourceColumnId } = JSON.parse(transferData) as { noteId: string; sourceColumnId: ColumnId };
   
-    if (sourceColumnId === trashColumnId) return; // Cannot drag from trash this way
+    // Não permitir arrastar da lixeira (restauração é feita por botão)
+    // Ou se não houver ID da nota arrastada ou coluna de origem
+    if (sourceColumnId === trashColumnId || !draggedNoteId || !sourceColumnId) return; 
   
     const targetElement = e.target as HTMLElement;
+    // Encontra o elemento de nota mais próximo sobre o qual foi solto
     const droppedOnNoteElement = targetElement.closest('[data-note-id]');
     const droppedOnNoteId = droppedOnNoteElement?.getAttribute('data-note-id') || null;
   
     updateState(prevState => {
       const sourceCol = prevState.columns[sourceColumnId];
       const targetCol = prevState.columns[targetColumnId];
-      if (!sourceCol || !targetCol) return prevState;
+  
+      // Validar se as colunas de origem e destino existem
+      if (!sourceCol || !targetCol) {
+        console.error("Source or target column not found during drop.");
+        return prevState;
+      }
   
       const noteToMove = sourceCol.notes.find(note => note.id === draggedNoteId);
-      if (!noteToMove) return prevState;
+      if (!noteToMove) {
+        console.error("Note to move not found in source column.");
+        return prevState;
+      }
   
-      // Moving to a different column
-      if (sourceColumnId !== targetColumnId) {
-        if (targetColumnId === trashColumnId) return prevState; // Use deleteNote for trash
+      // Não permitir soltar na lixeira via drag-and-drop (deleção é feita por botão)
+      if (targetColumnId === trashColumnId) return prevState;
   
-        const newSourceNotes = sourceCol.notes.filter(note => note.id !== draggedNoteId);
-        let newTargetNotes = [...(Array.isArray(targetCol.notes) ? targetCol.notes : [])];
+      let newSourceNotes = [...sourceCol.notes];
+      let newTargetNotes = targetColumnId === sourceColumnId ? newSourceNotes : [...targetCol.notes];
   
-        // If dropped on a specific note in the target column, insert before it
-        if (droppedOnNoteId && targetCol.id === targetColumnId && targetCol.notes.find(n => n.id === droppedOnNoteId)) {
-          const targetIndex = newTargetNotes.findIndex(note => note.id === droppedOnNoteId);
-          if (targetIndex !== -1) {
-            newTargetNotes.splice(targetIndex, 0, noteToMove);
-          } else {
-            newTargetNotes.push(noteToMove); // Fallback if target note not found in current list
-          }
-        } else {
-          newTargetNotes.push(noteToMove); // Append to end if dropped on column bg or empty space
+      // Remover a nota da sua posição original
+      const itemIndex = newSourceNotes.findIndex(note => note.id === draggedNoteId);
+      if (itemIndex > -1) {
+        newSourceNotes.splice(itemIndex, 1);
+        if (targetColumnId === sourceColumnId) { // Se for a mesma coluna, newTargetNotes também é afetado
+          newTargetNotes = [...newSourceNotes];
         }
-        
-        // Ensure uniqueness in target column (defensive)
-        newTargetNotes = newTargetNotes.filter((note, index, self) => index === self.findIndex((t) => t.id === note.id));
+      } else {
+        // Se a nota não estava na coluna de origem, algo está errado.
+        console.error("Dragged note not found in source column's array after find.");
+        return prevState;
+      }
   
+      // Inserir na nova posição
+      if (droppedOnNoteId && draggedNoteId !== droppedOnNoteId) {
+        const targetItemIndex = newTargetNotes.findIndex(note => note.id === droppedOnNoteId);
+        if (targetItemIndex > -1) {
+          newTargetNotes.splice(targetItemIndex, 0, noteToMove);
+        } else {
+          newTargetNotes.push(noteToMove); // Se a nota alvo não for encontrada, adiciona ao final
+        }
+      } else if (!droppedOnNoteId) { // Solto no fundo da coluna
+        newTargetNotes.push(noteToMove);
+      }
+      // Se droppedOnNoteId === draggedNoteId, não faz nada (soltou em si mesmo)
+      
+      // Garantir unicidade final, embora a lógica acima deva prevenir duplicatas se bem implementada.
+      const finalTargetNotes = newTargetNotes.filter((note, index, self) => index === self.findIndex((t) => t.id === note.id));
+
+      if (sourceColumnId !== targetColumnId) {
         return {
           ...prevState,
           columns: {
             ...prevState.columns,
             [sourceColumnId]: { ...sourceCol, notes: newSourceNotes },
-            [targetColumnId]: { ...targetCol, notes: newTargetNotes },
+            [targetColumnId]: { ...targetCol, notes: finalTargetNotes },
           }
         };
-      }
-      // Reordering within the same column
-      else if (sourceColumnId === targetColumnId) {
-        if (draggedNoteId === droppedOnNoteId) return prevState; // Dropped on itself
-  
-        let currentNotes = [...sourceCol.notes];
-        const draggedItemIndex = currentNotes.findIndex(note => note.id === draggedNoteId);
-  
-        if (draggedItemIndex === -1) return prevState; // Should not happen
-  
-        const [draggedItem] = currentNotes.splice(draggedItemIndex, 1); // Remove item
-  
-        if (droppedOnNoteId) {
-          const targetItemIndex = currentNotes.findIndex(note => note.id === droppedOnNoteId);
-          if (targetItemIndex !== -1) {
-            currentNotes.splice(targetItemIndex, 0, draggedItem); // Insert before the target note
-          } else {
-            // If targetNoteId is not found (e.g. element removed, or drop was on column bg after all)
-            currentNotes.push(draggedItem); // Append to the end
-          }
-        } else {
-          // Dropped on the column background (not a specific note) within the same column. Append to the end.
-          currentNotes.push(draggedItem);
-        }
-        
-        // Ensure uniqueness (defensive)
-        currentNotes = currentNotes.filter((note, index, self) => index === self.findIndex((t) => t.id === note.id));
-  
+      } else { // Reordenando na mesma coluna
         return {
           ...prevState,
           columns: {
             ...prevState.columns,
-            [sourceColumnId]: { ...sourceCol, notes: currentNotes }
+            [sourceColumnId]: { ...sourceCol, notes: finalTargetNotes }
           }
         };
       }
-      return prevState;
     });
   }, [updateState, trashColumnId]);
 
@@ -331,57 +358,51 @@ export function useKanbanState() {
       const newColumnId: ColumnId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
       const newColumn: ColumnData = { id: newColumnId, title, notes: [], color, isCustom: true };
       
+      // Adiciona a nova coluna antes da lixeira na ordem
       let newColumnOrder = [...currentState.columnOrder];
-      const lixeiraIndex = newColumnOrder.indexOf(trashColumnId);
+      const lixeiraIndex = newColumnOrder.indexOf(trashColumnId); // Lixeira não está na columnOrder principal
       
-      if (lixeiraIndex !== -1) {
-        newColumnOrder.splice(lixeiraIndex, 0, newColumnId);
-      } else {
-        newColumnOrder.push(newColumnId);
-      }
+      // Adiciona a nova coluna ao final da lista de colunas visíveis
+      newColumnOrder.push(newColumnId);
       
       return { ...currentState, columns: { ...currentState.columns, [newColumnId]: newColumn }, columnOrder: newColumnOrder };
     });
-  }, [updateState, trashColumnId]);
+  }, [updateState]);
 
   const reorderColumns = useCallback((newColumnOrderFromDialog: ColumnId[]) => {
     updateState(currentState => {
-      // Filter out trashColumnId and ensure all IDs are valid columns that exist
+      // Filtra apenas IDs válidos que existem nas colunas e não são a lixeira
       const validOrderedIds = newColumnOrderFromDialog.filter(id => currentState.columns[id] && id !== trashColumnId);
       
-      // Ensure all existing non-trash columns are present in the new order.
-      // If some were not in newColumnOrderFromDialog (e.g. due to a bug in dialog), append them.
-      const currentNonTrashIds = currentState.columnOrder.filter(id => id !== trashColumnId && currentState.columns[id]);
-      const orderedSet = new Set(validOrderedIds);
-      currentNonTrashIds.forEach(id => {
-        if (!orderedSet.has(id)) {
-          validOrderedIds.push(id); // Append missing valid columns
+      // Garante que todas as colunas customizadas e principais (não-lixeira) existentes
+      // estejam presentes na nova ordem, mesmo que não tenham vindo do diálogo.
+      const currentNonTrashColumnIds = currentState.columnOrder.filter(id => id !== trashColumnId);
+      const finalOrderedIds = [...validOrderedIds]; // Começa com a ordem do diálogo
+
+      currentNonTrashColumnIds.forEach(id => {
+        if (!finalOrderedIds.includes(id)) {
+          finalOrderedIds.push(id); // Adiciona colunas faltantes ao final
         }
       });
       
-      // Ensure columnOrder always contains the trashColumnId if it exists in columns, but it's not part of draggable reorder
-      // The KanbanBoard component handles rendering trashColumnId separately if needed.
-      // The main columnOrder should only contain displayable/reorderable columns.
-      return { ...currentState, columnOrder: validOrderedIds };
+      return { ...currentState, columnOrder: finalOrderedIds };
     });
   }, [updateState, trashColumnId]);
 
   const updateColumn = useCallback((columnId: ColumnId, title: string, color: string) => {
     updateState(prevState => {
       const columnToUpdate = prevState.columns[columnId];
-      if (!columnToUpdate || columnId === trashColumnId) return prevState;
+      if (!columnToUpdate || columnId === trashColumnId) return prevState; // Não atualizar lixeira ou colunas inexistentes
       
-      // Determine if the title can be edited based on whether it's a custom column
-      // or if its initial state was marked as editable (though defaults are not).
       const defaultInitialData = getInitialKanbanData();
-      // A column is truly "core" if it exists in default data AND isCustom is false there.
-      const isCoreNonEditableTitle = defaultInitialData.columns[columnId] && defaultInitialData.columns[columnId].isCustom === false;
+      // Uma coluna é "core" (principal não customizável) se existir nos dados iniciais padrão E isCustom for false lá.
+      const isCoreNonEditableTitle = defaultInitialData.columns[columnId] && 
+                                     defaultInitialData.columns[columnId].isCustom === false;
 
-      // Allow title change if it's a custom column OR it's a core column that somehow got 'isCustom:true' (legacy)
-      // OR if it's a core column but we decide to allow its title to be changed (current default core columns are not editable by title)
+      // Permite edição do título se:
+      // 1. A coluna for customizada (columnToUpdate.isCustom === true)
+      // 2. OU se NÃO for uma coluna principal com título não editável.
       const canEditTitle = columnToUpdate.isCustom === true || !isCoreNonEditableTitle;
-
-
       const newTitle = canEditTitle && title.trim() !== "" ? title.trim() : columnToUpdate.title;
       
       return { ...prevState, columns: { ...prevState.columns, [columnId]: { ...columnToUpdate, title: newTitle, color } } };
@@ -391,24 +412,26 @@ export function useKanbanState() {
   const deleteColumn = useCallback((columnId: ColumnId) => {
     updateState(currentState => {
       const columnToDelete = currentState.columns[columnId];
-      // Prevent deleting the trash column or non-existent columns
-      if (!columnToDelete || columnId === trashColumnId) return currentState;
+      if (!columnToDelete || columnId === trashColumnId) return currentState; // Não deletar lixeira ou colunas inexistentes
 
-      // Filter out the column to be deleted from the order
+      const defaultInitialData = getInitialKanbanData();
+      if (defaultInitialData.columns[columnId] && defaultInitialData.columns[columnId].isCustom === false) {
+          // Se for uma coluna principal não customizável, apenas limpe suas notas e mova para lixeira. Não remova a coluna.
+          // Este caso já está coberto pela lógica de não permitir deleção de não-customizáveis no EditColumnsDialog.
+          // Aqui, vamos permitir a remoção da coluna da `columnOrder` e do objeto `columns`
+          // se ela foi marcada como `isCustom: true` em algum momento (ou se a lógica do diálogo permitir).
+      }
+
       const newColumnOrder = currentState.columnOrder.filter(id => id !== columnId);
-      
-      // Remove the column from the columns object
       const { [columnId]: _deletedColumn, ...remainingColumns } = currentState.columns;
       let updatedColumnsObject = remainingColumns;
 
-      // If the column to delete has notes and the trash column exists, move notes to trash
+      // Mover notas da coluna deletada para a lixeira, se a lixeira existir
       if (columnToDelete.notes.length > 0 && updatedColumnsObject[trashColumnId]) {
         const trashColData = updatedColumnsObject[trashColumnId];
-        // Mark notes with their previous column for potential restoration context
         const notesToMoveToTrash = columnToDelete.notes.map(note => ({ ...note, previousColumnId: columnId }));
         
         const currentTrashNotes = Array.isArray(trashColData.notes) ? trashColData.notes : [];
-        // Avoid duplicates in trash if somehow a note with same ID is already there
         const uniqueNotesToMove = notesToMoveToTrash.filter(moveToTrashNote =>
             !currentTrashNotes.some(trashNote => trashNote.id === moveToTrashNote.id)
         );
