@@ -21,7 +21,8 @@ import {
 import { MoreVertical, LogOut, UserCircle, Loader2, AlertCircle, Cloud, CloudUpload, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { clearLocalStorage } from '@/lib/kanban-utils';
 import { useAuth } from '@/contexts/AuthContext'; 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// Avatar foi removido, então o import não é mais necessário aqui
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
@@ -305,12 +306,13 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <header className="p-2 md:p-3 shadow-sm sticky top-0 z-20 bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto flex justify-between items-center">
+        <div className="container mx-auto flex justify-between items-center relative"> {/* Added relative here */}
           <div className="w-8 h-8 md:w-10 md:h-10">
-            {/* Avatar foi removido conforme solicitado */}
+            {/* Espaço à esquerda para balancear o ícone de menu à direita, avatar foi removido */}
           </div>
           
-          <div className="flex flex-col items-center">
+          {/* Logo e informações do usuário - Posicionado absolutamente */}
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
             <p className="text-xs text-muted-foreground mb-0">
               Design by Murillo Bueno
             </p>
@@ -429,3 +431,4 @@ export default function Home() {
     </div>
   );
 }
+
