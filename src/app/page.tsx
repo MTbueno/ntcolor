@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, LogOut, UserCircle, Loader2, AlertCircle, Cloud, CloudUpload, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { MoreVertical, LogOut, Loader2, AlertCircle, Cloud, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { clearLocalStorage } from '@/lib/kanban-utils';
 import { useAuth } from '@/contexts/AuthContext'; 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -302,7 +302,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
-      <header className="p-2 md:p-3 shadow-sm sticky top-0 z-20 bg-background/80 backdrop-blur-sm">
+      <header className="p-3 md:p-4 shadow-sm sticky top-0 z-20 bg-background/80 backdrop-blur-sm">
         <div className="container mx-auto flex justify-between items-center relative"> 
           <div className="w-8 h-8 md:w-10 md:h-10">
             {/* Espaço à esquerda para balancear o ícone de menu à direita */}
