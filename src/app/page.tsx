@@ -219,7 +219,7 @@ export default function Home() {
                 <span style={{ color: '#FFFACD' }}>r</span>
                 <span style={{ color: '#FFFFE0' }}>s</span>
               </h1>
-              <span className="text-xs text-muted-foreground ml-1 mb-1">beta</span>
+              {/* <span className="text-xs text-muted-foreground ml-1 mb-1">beta</span> */}
             </div>
         </div>
         <Card className="w-full max-w-sm shadow-2xl">
@@ -326,7 +326,7 @@ export default function Home() {
                 <span style={{ color: '#FFFACD' }}>r</span>
                 <span style={{ color: '#FFFFE0' }}>s</span>
               </h1>
-              <span className="text-xs text-muted-foreground ml-1 mb-1">beta</span>
+              {/* <span className="text-xs text-muted-foreground ml-1 mb-1">beta</span> */}
             </div>
              {currentUser && (
                 <p className="text-xs text-muted-foreground mt-1">
