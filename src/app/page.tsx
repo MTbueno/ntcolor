@@ -5,7 +5,7 @@ import KanbanBoard from '@/components/KanbanBoard';
 import GlobalNoteInput from '@/components/GlobalNoteInput';
 import CreateColumnDialog from '@/components/CreateColumnDialog';
 import EditColumnsDialog from '@/components/EditColumnsDialog';
-import ResetConfirmationDialog from '@/components/ResetConfirmationDialog';
+import ResetConfirmationDialog from '@/components/ResetConfirmationDialog'; // Though the dialog itself will be unused, keep import for now if other parts depend on module structure
 import { useKanbanState, type SyncStatus } from '@/hooks/useKanbanState';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, LogOut, Loader2, AlertCircle, Cloud, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
-import { clearLocalStorage } from '@/lib/kanban-utils';
+// import { clearLocalStorage } from '@/lib/kanban-utils'; // No longer needed here if reset functionality is fully removed
 import { useAuth } from '@/contexts/AuthContext'; 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -137,10 +137,10 @@ export default function Home() {
   };
 
   const handleConfirmResetApp = () => {
-    clearLocalStorage(); 
+    // clearLocalStorage(); // This logic is now removed from the menu
     // For logged-in users, this only clears local. Cloud data remains.
     // Consider adding a cloud data reset if needed, which would be a separate, more destructive action.
-    window.location.reload(); 
+    // window.location.reload(); 
     setIsResetConfirmationDialogOpen(false);
   };
 
@@ -350,10 +350,6 @@ export default function Home() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsEditColumnsDialogOpen(true)} disabled={!currentUser && false}>
                   Editar colunas
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                 <DropdownMenuItem onClick={() => setIsResetConfirmationDialogOpen(true)}> 
-                  Reset App (Local)
                 </DropdownMenuItem>
                  {currentUser && (
                   <>
