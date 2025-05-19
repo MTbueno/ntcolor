@@ -26,7 +26,7 @@ export const getInitialKanbanData = (): KanbanState => ({
           '- Borboleta na coxa, para espantar os redill\n- Abstrato com elementos em vermelho'
         ),
       ],
-      isCustom: false,
+      isCustom: true, // Alterado de false para true
       color: '#A93226',
     },
     'em-processo': {
@@ -44,7 +44,7 @@ export const getInitialKanbanData = (): KanbanState => ({
           'Comprar materiais'
         ),
       ],
-      isCustom: false,
+      isCustom: true, // Alterado de false para true
       color: '#9A7D0A',
     },
     'feito': {
@@ -57,30 +57,29 @@ export const getInitialKanbanData = (): KanbanState => ({
           'Olá, esse app eu criei para anotações rápidas semanais, numa interface simples e organizada. \nMuito obrigado por utilizar.\n\n- Murillo Bueno - murillo.toledo@live.com'
         ),
       ],
-      isCustom: false,
+      isCustom: true, // Alterado de false para true
       color: '#1E8449',
     },
     'lixeira': {
       id: 'lixeira',
       title: 'Lixeira',
       notes: [],
-      isCustom: false,
-      color: undefined, 
+      isCustom: false, // Lixeira continua não customizável e não deletável
+      color: undefined,
     },
   },
   columnOrder: ['importante', 'em-processo', 'feito'], // Lixeira is handled separately in UI
 });
 
+// initialCoreColumnsData agora também refletirá isCustom: true para as colunas padrão
 export const initialCoreColumnsData: Record<ColumnId, ColumnData> = getInitialKanbanData().columns;
 
 export const pastelColors: string[] = [
   '#A93226', '#AF601A', '#9A7D0A', '#1E8449', '#17A589',
   '#2471A3', '#6C3483', '#B977A4', '#795548', '#455A64',
-  '#B2A2C8', '#A2C8B2', '#C8A2A2', '#95A5A6', '#2C3E50', // Novas cores adicionadas
+  '#B2A2C8', '#A2C8B2', '#C8A2A2', '#95A5A6', '#2C3E50',
 ];
 
-// This function now primarily loads from local storage or returns a fresh default state.
-// It's used for anonymous users or as a fallback if Firestore loading fails.
 export const loadStateFromLocalStorage = (): KanbanState => {
   if (typeof window === 'undefined') return getInitialKanbanData();
 
@@ -88,14 +87,13 @@ export const loadStateFromLocalStorage = (): KanbanState => {
     const serializedState = localStorage.getItem(KANBAN_DATA_KEY);
     if (serializedState === null) {
       const defaultState = getInitialKanbanData();
-      // Don't save to localStorage here immediately, let useKanbanState handle it
       return defaultState;
     }
 
     const storedState: Partial<KanbanState> = JSON.parse(serializedState);
     const loadedColumns: Record<ColumnId, ColumnData> = {};
     let loadedColumnOrder: ColumnId[] = [];
-    const defaultInitialData = getInitialKanbanData(); // For reference
+    const defaultInitialData = getInitialKanbanData();
 
     if (storedState.columns) {
       for (const colId in storedState.columns) {
@@ -119,29 +117,31 @@ export const loadStateFromLocalStorage = (): KanbanState => {
       }
     }
 
+    // Garantir que as colunas padrão reflitam o novo 'isCustom: true' se já existirem no localStorage
+    // e garantir que suas propriedades fundamentais (como título, se isCustom fosse false) sejam mantidas.
+    // Com isCustom: true, o título carregado do localStorage para colunas padrão será mantido.
     for (const coreColId in defaultInitialData.columns) {
       if (!loadedColumns[coreColId]) {
         loadedColumns[coreColId] = JSON.parse(JSON.stringify(defaultInitialData.columns[coreColId]));
       } else {
          const defaultCoreCol = defaultInitialData.columns[coreColId];
          if (defaultCoreCol) {
+             // Atualiza isCustom para o valor do default (que agora é true para as colunas padrão)
              loadedColumns[coreColId].isCustom = defaultCoreCol.isCustom;
-             if (!defaultCoreCol.isCustom && loadedColumns[coreColId].title !== defaultCoreCol.title) {
-                 loadedColumns[coreColId].title = defaultCoreCol.title;
-             }
+             // Mantém a cor do default se não houver cor no localStorage
              if (!loadedColumns[coreColId].color && defaultCoreCol.color) {
                  loadedColumns[coreColId].color = defaultCoreCol.color;
              }
          }
       }
     }
-    
+
     if (!loadedColumns.lixeira || typeof loadedColumns.lixeira.notes === 'undefined') {
       loadedColumns.lixeira = JSON.parse(JSON.stringify(defaultInitialData.columns.lixeira));
     } else {
-      loadedColumns.lixeira = { // Ensure it's fully structured like the default
-        ...defaultInitialData.columns.lixeira, // Start with default structure for lixeira
-        ...loadedColumns.lixeira, // Override with loaded properties
+      loadedColumns.lixeira = {
+        ...defaultInitialData.columns.lixeira,
+        ...loadedColumns.lixeira,
         notes: Array.isArray(loadedColumns.lixeira.notes) ? loadedColumns.lixeira.notes.map(note => ({
               id: String(note.id || `note-fallback-${Date.now()}-${Math.random()}`),
               content: String(note.content || ''),
@@ -151,13 +151,12 @@ export const loadStateFromLocalStorage = (): KanbanState => {
       };
     }
 
-
     Object.keys(loadedColumns).forEach(colId => {
         const col = loadedColumns[colId];
         const uniqueNotesMap = new Map<string, Note>();
         if (Array.isArray(col.notes)) {
             for (const note of col.notes) {
-                if (note && typeof note.id === 'string') { // Ensure note and note.id are valid
+                if (note && typeof note.id === 'string') {
                     if (!uniqueNotesMap.has(note.id)) {
                         uniqueNotesMap.set(note.id, note);
                     }
@@ -197,12 +196,11 @@ export const loadStateFromLocalStorage = (): KanbanState => {
             loadedColumnOrder.push(customColId);
         }
     });
-    
+
     if (loadedColumnOrder.length === 0 && Object.keys(loadedColumns).filter(id => id !== 'lixeira').length > 0) {
         loadedColumnOrder = defaultInitialData.columnOrder.filter(id => loadedColumns[id]);
          Object.keys(loadedColumns).filter(id => id !== 'lixeira' && !loadedColumnOrder.includes(id)).forEach(id => loadedColumnOrder.push(id));
     }
-
 
     return { columns: loadedColumns, columnOrder: loadedColumnOrder };
 
@@ -215,7 +213,7 @@ export const loadStateFromLocalStorage = (): KanbanState => {
 export const saveStateToLocalStorage = (state: KanbanState): void => {
   if (typeof window === 'undefined' || !state) return;
   try {
-    const stateToSave: KanbanState = JSON.parse(JSON.stringify(state)); // Deep copy
+    const stateToSave: KanbanState = JSON.parse(JSON.stringify(state));
 
     Object.values(stateToSave.columns).forEach(col => {
       if (!Array.isArray(col.notes)) col.notes = [];

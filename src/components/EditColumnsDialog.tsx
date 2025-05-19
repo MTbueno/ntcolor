@@ -54,6 +54,7 @@ export default function EditColumnsDialog({
       const displayableColumns = initialOrder
           .map((id, index) => {
               const column = initialColumns.find(col => col.id === id);
+              // Inclui colunas mesmo que sejam 'padrão' (isCustom pode ser true agora para elas)
               return column && column.id !== trashColumnId ? { ...column, originalIndex: index } : null;
           })
           .filter(Boolean) as EditableColumn[]; 
@@ -97,8 +98,10 @@ export default function EditColumnsDialog({
 
   const handleUpdateColumnDetailsAndCloseModal = () => {
     if (editingColumn) { 
-      const coreColumnCanEditTitle = initialCoreColumnsData[editingColumn.id]?.isCustom === true;
-      const titleToSave = editingColumn.isCustom || coreColumnCanEditTitle ? editTitle.trim() : editingColumn.title; 
+      // Com a mudança, editingColumn.isCustom será true para colunas padrão
+      // e initialCoreColumnsData[editingColumn.id]?.isCustom também será true.
+      // Assim, o título sempre será editável (a menos que seja a lixeira, que não aparece aqui).
+      const titleToSave = editTitle.trim();
       
       if (titleToSave) { 
          onUpdateColumn(editingColumn.id, titleToSave, editColor); 
@@ -155,7 +158,10 @@ export default function EditColumnsDialog({
                     size="icon" 
                     className="h-7 w-7 text-destructive hover:text-destructive" 
                     onClick={() => handleDeleteColumnFromDialogAndCloseModal(column.id)}
-                    disabled={!column.isCustom && initialCoreColumnsData[column.id]?.isCustom === false}
+                    // Agora as colunas padrão também terão isCustom = true, então este botão não será desabilitado
+                    // a menos que no futuro você adicione uma lógica específica para não permitir deletar se for a única coluna, por exemplo.
+                    // A coluna lixeira não entra nesta lista de qualquer forma.
+                    disabled={false} 
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -190,7 +196,8 @@ export default function EditColumnsDialog({
                  value={editTitle}
                  onChange={(e) => setEditTitle(e.target.value)}
                  className="col-span-3"
-                 disabled={!editingColumn.isCustom && initialCoreColumnsData[editingColumn.id]?.isCustom === false} 
+                 // Agora, o título é sempre editável para colunas que aparecem aqui (exceto lixeira)
+                 disabled={false} 
                />
              </div>
              <div className="grid grid-cols-4 items-start gap-4">
@@ -221,7 +228,7 @@ export default function EditColumnsDialog({
              <AlertDialogCancel onClick={() => setEditingColumn(null)}>Cancelar</AlertDialogCancel>
              <AlertDialogAction 
                 onClick={handleUpdateColumnDetailsAndCloseModal} 
-                disabled={(editingColumn.isCustom || initialCoreColumnsData[editingColumn.id]?.isCustom === true) && !editTitle.trim()}
+                disabled={!editTitle.trim()} // Só desabilita se o título estiver vazio
              >
                Salvar Alterações
              </AlertDialogAction>
