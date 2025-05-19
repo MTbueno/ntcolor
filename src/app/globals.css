@@ -9,34 +9,34 @@ body {
 
 @layer base {
   :root {
-    /* Light Theme remains unchanged unless specified */
-    --background: 224 71.4% 4.1% / 0.95; /* Default Light theme values, with transparency */
-    --foreground: 210 20% 98%; /* Opaque */
+    /* Light Theme */
+    --background: 0 0% 98%; /* White */
+    --foreground: 240 10% 3.9%; /* Almost Black */
 
-    --card: 224 71.4% 10% / 0.9;
-    --card-foreground: 210 20% 98%; /* Opaque */
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 240 10% 3.9%; /* Almost Black */
 
-    --popover: 224 71.4% 4.1% / 0.9;
-    --popover-foreground: 210 20% 98%; /* Opaque */
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 240 10% 3.9%; /* Almost Black */
 
-    --primary: 180 80% 30%; /* Opaque */
-    --primary-foreground: 210 20% 98%; /* Opaque */
+    --primary: 180 80% 30%; /* Light Teal */
+    --primary-foreground: 210 20% 98%; /* White */
 
-    --secondary: 215 27.9% 16.9% / 0.9;
-    --secondary-foreground: 210 20% 98%; /* Opaque */
+    --secondary: 240 4.8% 95.9%; /* Light Gray */
+    --secondary-foreground: 240 5.9% 10%; /* Dark Gray */
 
-    --muted: 215 27.9% 16.9% / 0.9;
-    --muted-foreground: 220 14.3% 55.9%; /* Opaque */
+    --muted: 240 4.8% 95.9%; /* Light Gray */
+    --muted-foreground: 240 3.8% 46.1%; /* Medium Gray */
 
-    --accent: 180 80% 30%; /* Opaque */
-    --accent-foreground: 210 20% 98%; /* Opaque */
+    --accent: 180 80% 30%; /* Light Teal */
+    --accent-foreground: 210 20% 98%; /* White */
 
-    --destructive: 0 65% 40%; /* Opaque */
-    --destructive-foreground: 0 0% 98%; /* Opaque */
+    --destructive: 0 72.2% 50.6%; /* Red */
+    --destructive-foreground: 0 0% 98%; /* White */
 
-    --border: 215 27.9% 16.9% / 0.7;
-    --input: 215 27.9% 16.9% / 0.9;
-    --ring: 180 80% 40%; /* Opaque */
+    --border: 240 5.9% 90%; /* Light Gray Border */
+    --input: 240 5.9% 90%; /* Light Gray Input */
+    --ring: 180 80% 40%; /* Slightly lighter primary for rings (teal) */
 
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -46,48 +46,46 @@ body {
     --radius: 0.5rem;
 
     /* Light Theme Column and Note Card Colors */
-    --column-importante-bg: 0 25% 12% / 0.2;  /* Darker, less saturated red, 20% transparent */
-    --column-em-processo-bg: 35 25% 14% / 0.2; /* Darker, less saturated gold, 20% transparent */
-    --column-feito-bg: 120 25% 10% / 0.2;    /* Darker, less saturated green, 20% transparent */
+    --column-importante-bg: 0 70% 60% / 0.2;  /* Light Red, 20% transparent */
+    --column-em-processo-bg: 45 70% 60% / 0.2; /* Light Gold/Brown, 20% transparent */
+    --column-feito-bg: 120 60% 50% / 0.2;    /* Light Green, 20% transparent */
     
-    --note-card-importante-bg: 0 35% 15% / 0.7; /* 70% opacity */
-    --note-card-em-processo-bg: 35 35% 18% / 0.7; /* 70% opacity */
-    --note-card-feito-bg: 120 35% 12% / 0.7; /* 70% opacity */
-    --note-card-lixeira-bg: 215 27.9% 16.9% / 0.7; /* Muted color at 70% opacity for Lixeira notes */
-
+    --note-card-importante-bg: 0 70% 60% / 0.7; /* 70% opacity */
+    --note-card-em-processo-bg: 45 70% 60% / 0.7; /* 70% opacity */
+    --note-card-feito-bg: 120 60% 50% / 0.7; /* 70% opacity */
+    --note-card-lixeira-bg: 240 4.8% 95.9% / 0.7; /* Muted color at 70% opacity for Lixeira notes */
 
     /* Light Theme Tags */
-    --column-importante-tag-bg: 0 70% 55% / 0.9;
-    --column-importante-tag-text: 0 0% 98%;
-    --column-em-processo-tag-bg: 40 35% 60% / 0.9;
-    --column-em-processo-tag-text: 40 20% 15%;
-    --column-feito-tag-bg: 120 50% 50% / 0.9;
-    --column-feito-tag-text: 120 20% 15%;
+    --column-importante-tag-bg: 0 70% 55%; /* Solid Light Red */
+    --column-importante-tag-text: 0 0% 100%; /* White text */
+    --column-em-processo-tag-bg: 45 70% 55%; /* Solid Light Gold/Brown */
+    --column-em-processo-tag-text: 0 0% 15%; /* Dark text */
+    --column-feito-tag-bg: 120 60% 45%; /* Solid Light Green */
+    --column-feito-tag-text: 0 0% 100%; /* White text */
 
-    --column-count-text: 220 15% 70%;
+    --column-count-text: 240 3.8% 46.1%; /* Medium Gray */
 
     /* Light Theme Note Input Area */
-    --note-input-bg: 220 10% 90% / 0.9;
-    --note-input-foreground: 224 71.4% 4.1%;
-    --note-input-border: 0 0% 85% / 0.7;
-    --note-input-placeholder-foreground: 220 14.3% 55.9% / 0.8;
+    --note-input-bg: 0 0% 100%; /* Opaque White */
+    --note-input-foreground: 240 10% 3.9%; /* Almost Black text */
+    --note-input-border: 240 5.9% 85%; /* Slightly darker gray border, 70% transparent */
+    --note-input-placeholder-foreground: 240 3.8% 46.1% / 0.8; /* Medium Gray placeholder, 80% transparent */
     --note-input-button-bg: 50 80% 70%; 
     --note-input-button-text: 50 30% 20%; 
 
-
-    --sidebar-background: 0 0% 98% / 0.95;
+    --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9% / 0.9;
+    --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91% / 0.7;
+    --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
     /* Changed background to charcoal */
-    --background: 240 10% 10% / 0.95; /* Charcoal background with transparency */
+    --background: 240 10% 10%; /* Charcoal background with transparency - hsl(240, 10%, 10%) */
     --foreground: 0 0% 98%; /* White - Opaque */
 
     /* Adjusted card background slightly lighter than new background */
@@ -129,32 +127,31 @@ body {
 
     /* Dark Theme Column and Note Card Colors */
     /* Importante (Reddish) */
-    --column-importante-bg: 0 25% 12% / 0.2; /* Darker, less saturated red, 20% transparent */
+    --column-importante-bg: 0 35% 18% / 0.2; /* Dark Red, 20% opacity */
     --note-card-importante-bg: 0 35% 15% / 0.7; /* 70% opacity */
     /* Em Processo (Brown/Gold) */
-    --column-em-processo-bg: 35 25% 14% / 0.2; /* Darker, less saturated gold, 20% transparent */
+    --column-em-processo-bg: 35 30% 20% / 0.2; /* Dark Gold/Brown, 20% opacity */
     --note-card-em-processo-bg: 35 35% 18% / 0.7; /* 70% opacity */
     /* Feito (Green) */
-    --column-feito-bg: 120 25% 10% / 0.2; /* Darker, less saturated green, 20% transparent */
+    --column-feito-bg: 120 30% 15% / 0.2;    /* Dark Green, 20% opacity */
     --note-card-feito-bg: 120 35% 12% / 0.7; /* 70% opacity */
-    /* Lixeira column style uses muted variables by default in component */
-    /* Lixeira note card style uses muted variables by default in component */
+    
     --note-card-lixeira-bg: 240 8% 20% / 0.7; /* Muted color at 70% opacity for Lixeira notes */
 
 
     /* Dark Theme Tags */
-    --column-importante-tag-bg: 0 70% 50% / 0.9;   /* Bright Red */
+    --column-importante-tag-bg: 0 70% 50%;   /* Bright Red */
     --column-importante-tag-text: 0 0% 98%; /* White - Opaque */
-    --column-em-processo-tag-bg: 40 30% 55% / 0.9; /* Muted Yellow/Brown */
+    --column-em-processo-tag-bg: 40 30% 55%; /* Muted Yellow/Brown */
     --column-em-processo-tag-text: 40 20% 15%; /* Dark Text - Opaque */
-    --column-feito-tag-bg: 120 50% 45% / 0.9;      /* Bright Green */
+    --column-feito-tag-bg: 120 50% 45%;      /* Bright Green */
     --column-feito-tag-text: 120 20% 15%;    /* Dark Text - Opaque */
     /* Lixeira tag style uses muted variables by default in component */
 
     --column-count-text: 240 5% 65%; /* Lighter gray for muted text */
 
     /* Dark Theme Note Input Area */
-    --note-input-bg: 240 5% 25% / 0.9; 
+    --note-input-bg: 240 5% 25%; /* Opaque Dark Gray */
     --note-input-foreground: 0 0% 98%; 
     --note-input-border: 240 6% 35% / 0.7; 
     --note-input-placeholder-foreground: 240 5% 60% / 0.8; 
@@ -162,13 +159,13 @@ body {
     --note-input-button-text: 50 30% 20%; 
 
     /* Adjusted Sidebar colors for contrast with charcoal */
-    --sidebar-background: 240 8% 12% / 0.95; 
+    --sidebar-background: 240 8% 12%; 
     --sidebar-foreground: 0 0% 95%; 
     --sidebar-primary: 180 70% 40%; 
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 6% 22% / 0.9; 
+    --sidebar-accent: 240 6% 22%; 
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 5% 28% / 0.7; 
+    --sidebar-border: 240 5% 28%; 
     --sidebar-ring: 180 80% 50%; 
   }
 }
