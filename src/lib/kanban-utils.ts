@@ -3,14 +3,15 @@ import type { KanbanState, ColumnId, ColumnData, Note } from '@/types/kanban';
 
 export const KANBAN_DATA_KEY = 'kanbanflow-data';
 
-const createInitialNote = (id: string, content: string, attachment?: string): Note => ({
-  id,
-  content,
-  previousColumnId: undefined,
-  attachment,
-});
+// Helper createInitialNote is no longer needed if no default notes are created.
+// const createInitialNote = (id: string, content: string, attachment?: string): Note => ({
+//   id,
+//   content,
+//   previousColumnId: undefined,
+//   attachment,
+// });
 
-// Defines the absolute default structure and notes for the app.
+// Defines the absolute default structure for the app.
 // This is used for:
 // 1. New anonymous users (if localStorage is empty).
 // 2. New authenticated users (if their Firestore document is empty).
@@ -19,59 +20,35 @@ export const getInitialKanbanData = (): KanbanState => ({
     'importante': {
       id: 'importante',
       title: 'Importante',
-      notes: [
-        createInitialNote(
-          'note-default-tattoo',
-          'Fazer uma tattoo com @murillotattoo',
-          '- Borboleta na coxa, para espantar os redill\n- Abstrato com elementos em vermelho'
-        ),
-      ],
-      isCustom: true, // Alterado de false para true
+      notes: [], // Notes array is now empty
+      isCustom: true, 
       color: '#A93226',
     },
     'em-processo': {
       id: 'em-processo',
       title: 'Em processo',
-      notes: [
-        createInitialNote(
-          'note-default-portfolio',
-          'Criar um portfólio para apps que estou criando',
-          'Fiz uma calculadora de primeiro projeto, já que infelizmente o iPad não tem uma nativa.\nhttps://orange-lac.vercel.app/'
-        ),
-        createInitialNote(
-          'note-default-pintura',
-          'Aprender sobre pintura acrílica',
-          'Comprar materiais'
-        ),
-      ],
-      isCustom: true, // Alterado de false para true
+      notes: [], // Notes array is now empty
+      isCustom: true, 
       color: '#9A7D0A',
     },
     'feito': {
       id: 'feito',
       title: 'Feito',
-      notes: [
-         createInitialNote(
-          'note-default-appnotas',
-          'Criar app de notas',
-          'Olá, esse app eu criei para anotações rápidas semanais, numa interface simples e organizada. \nMuito obrigado por utilizar.\n\n- Murillo Bueno - murillo.toledo@live.com'
-        ),
-      ],
-      isCustom: true, // Alterado de false para true
+      notes: [], // Notes array is now empty
+      isCustom: true, 
       color: '#1E8449',
     },
     'lixeira': {
       id: 'lixeira',
       title: 'Lixeira',
       notes: [],
-      isCustom: false, // Lixeira continua não customizável e não deletável
+      isCustom: false, 
       color: undefined,
     },
   },
-  columnOrder: ['importante', 'em-processo', 'feito'], // Lixeira is handled separately in UI
+  columnOrder: ['importante', 'em-processo', 'feito'], 
 });
 
-// initialCoreColumnsData agora também refletirá isCustom: true para as colunas padrão
 export const initialCoreColumnsData: Record<ColumnId, ColumnData> = getInitialKanbanData().columns;
 
 export const pastelColors: string[] = [
@@ -117,18 +94,13 @@ export const loadStateFromLocalStorage = (): KanbanState => {
       }
     }
 
-    // Garantir que as colunas padrão reflitam o novo 'isCustom: true' se já existirem no localStorage
-    // e garantir que suas propriedades fundamentais (como título, se isCustom fosse false) sejam mantidas.
-    // Com isCustom: true, o título carregado do localStorage para colunas padrão será mantido.
     for (const coreColId in defaultInitialData.columns) {
       if (!loadedColumns[coreColId]) {
         loadedColumns[coreColId] = JSON.parse(JSON.stringify(defaultInitialData.columns[coreColId]));
       } else {
          const defaultCoreCol = defaultInitialData.columns[coreColId];
          if (defaultCoreCol) {
-             // Atualiza isCustom para o valor do default (que agora é true para as colunas padrão)
              loadedColumns[coreColId].isCustom = defaultCoreCol.isCustom;
-             // Mantém a cor do default se não houver cor no localStorage
              if (!loadedColumns[coreColId].color && defaultCoreCol.color) {
                  loadedColumns[coreColId].color = defaultCoreCol.color;
              }
