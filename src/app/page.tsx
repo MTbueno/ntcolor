@@ -309,7 +309,7 @@ export default function Home() {
           </div>
           
           <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-            <p className="text-[10px] text-muted-foreground mb-0 leading-tight">
+            <p className="text-[10px] text-muted-foreground mt-1 mb-0 leading-tight">
               Design by Murillo Bueno
             </p>
             <div className="flex items-end">
@@ -325,7 +325,7 @@ export default function Home() {
             </div>
              {currentUser && (
                 <p className="text-xs text-muted-foreground mt-0 leading-tight">
-                    Logado como: {currentUser.displayName || currentUser.email}
+                    {currentUser.displayName || currentUser.email}
                 </p>
             )}
           </div>
