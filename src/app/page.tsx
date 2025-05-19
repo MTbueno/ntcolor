@@ -206,7 +206,6 @@ export default function Home() {
     return (
       <div className="flex flex-col h-screen bg-background text-foreground items-center justify-center p-4">
         <div className="flex flex-col items-center mb-8">
-            <p className="text-[10px] text-muted-foreground mb-0">Design by Murillo Bueno</p>
             <div className="flex items-end">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight mt-0">
                 <span>Note.</span>
@@ -309,9 +308,6 @@ export default function Home() {
           </div>
           
           <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-            <p className="text-[10px] text-muted-foreground mt-1 mb-0 leading-tight">
-              Design by Murillo Bueno
-            </p>
             <div className="flex items-end">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight mt-0">
                 <span>Note.</span>
@@ -426,4 +422,3 @@ export default function Home() {
     </div>
   );
 }
-
